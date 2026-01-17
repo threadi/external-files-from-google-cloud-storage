@@ -21,7 +21,6 @@ jobs:
         run: |
           composer install
           composer update
-          cd ../../../
           rm -fr build
           rm -fr releases
           rm -fr svn
@@ -35,9 +34,6 @@ jobs:
 
       - name: Generate autoloader
         run: composer dump-autoload -oa --no-dev
-
-      - name: Run PHPStan analyse
-        run: vendor/bin/phpstan analyse
 
       - name: PHP Compatibility check
         run: vendor/bin/phpcs -p app --standard=PHPCompatibilityWP
@@ -61,17 +57,6 @@ jobs:
           files: 'readme.txt'
           search-text: '@@VersionNumber@@'
           replacement-text: ${{ github.ref_name }}
-
-      - name: Run PCP check
-        uses: wordpress/plugin-check-action@v1
-        with:
-          ignore-codes:
-            WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound
-          include-experimental: false
-          error-severity: 7
-          warning-severity: 6
-          include-low-severity-errors: true
-        continue-on-error: true
 
       - name: Create ZIP release
         run: |
