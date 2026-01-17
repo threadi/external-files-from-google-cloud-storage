@@ -47,7 +47,7 @@ jobs:
       - name: Set version number 1
         uses: richardrigutins/replace-in-files@v2
         with:
-          files: 'external-files-in-media-library.php'
+          files: 'external-files-from-google-cloud-storage.php'
           search-text: '@@VersionNumber@@'
           replacement-text: ${{ github.ref_name }}
 
