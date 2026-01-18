@@ -101,6 +101,7 @@
         <delete file="${build.dir}/${plugin.slug}_${plugin.version}.zip"/>
         <zip destfile="${build.dir}/${plugin.slug}_${plugin.version}.zip">
             <zipfileset dir="${src.dir}/app" prefix="${plugin.slug}/app" />
+            <zipfileset dir="${src.dir}/gfx" prefix="${plugin.slug}/gfx" />
             <zipfileset dir="${src.dir}/languages" prefix="${plugin.slug}/languages" />
             <zipfileset dir="${src.dir}/vendor" includes="autoload.php" fullpath="${plugin.slug}/vendor/autoload.php" />
             <zipfileset dir="${src.dir}/vendor/composer" prefix="${plugin.slug}/vendor/composer" />
@@ -113,6 +114,7 @@
             <zipfileset dir="${src.dir}/vendor/firebase" prefix="${plugin.slug}/vendor/firebase" />
             <zipfileset dir="${src.dir}/vendor/monolog" prefix="${plugin.slug}/vendor/monolog" />
             <zipfileset dir="${src.dir}/vendor/psr" prefix="${plugin.slug}/vendor/psr" />
+            <zipfileset dir="${src.dir}/vendor/psr" prefix="${plugin.slug}/vendor/afragen" />
             <zipfileset dir="${src.dir}" includes="readme-release.txt" fullpath="${plugin.slug}/readme.txt" />
             <zipfileset dir="${src.dir}" includes="uninstall.php,composer.json" prefix="${plugin.slug}" />
             <zipfileset dir="${src.dir}" includes="${plugin.slug}-release.php" fullpath="${plugin.slug}/${plugin.slug}.php" />

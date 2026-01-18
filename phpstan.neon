@@ -9,6 +9,7 @@ parameters:
     - "#add_error#"
     - "#get_name#"
     - "#get_url#"
+    - "#EFML_PLUGIN#"
   earlyTerminatingFunctionCalls:
     - wp_send_json
   paths:
