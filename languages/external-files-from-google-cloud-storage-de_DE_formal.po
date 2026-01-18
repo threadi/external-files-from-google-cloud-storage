@@ -1,0 +1,313 @@
+# Copyright (C) 2026 Thomas Zwirner
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: External files from Google Cloud Storage in Media "
+"Library @@VersionNumber@@\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/external-files-"
+"from-google-cloud-storage\n"
+"POT-Creation-Date: 2026-01-18T15:18:21+01:00\n"
+"PO-Revision-Date: 2026-01-18 15:42+0100\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: de_DE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.8\n"
+"X-Domain: external-files-from-google-cloud-storage\n"
+
+#. Plugin Name of the plugin
+#: external-files-from-google-cloud-storage.php
+msgid "External files from Google Cloud Storage in Media Library"
+msgstr "Externe Dateien aus dem Google Cloud Storage in der Mediathek"
+
+#. Description of the plugin
+#: external-files-from-google-cloud-storage.php
+msgid ""
+"Extends External files in Media Library for usage of Google Cloud Storage."
+msgstr "Erweitere Externe Dateien in der Mediathek mit Google Cloud Storage."
+
+#. Author of the plugin
+#: external-files-from-google-cloud-storage.php
+msgid "Thomas Zwirner"
+msgstr "Thomas Zwirner"
+
+#. Author URI of the plugin
+#: external-files-from-google-cloud-storage.php
+msgid "https://www.thomaszwirner.de"
+msgstr "https://www.thomaszwirner.de"
+
+#: app/GoogleCloudStorage.php:121
+msgid "Choose file(s) from your Google Cloud Storage"
+msgstr "Wähle Datei(en) von deinem Google Cloud Storage"
+
+#: app/GoogleCloudStorage.php:190 app/GoogleCloudStorage.php:744
+#: app/GoogleCloudStorage.php:911
+msgid "Authentication JSON"
+msgstr "Authentifizierung JSON"
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:192 app/GoogleCloudStorage.php:746
+#, php-format
+msgid ""
+"Get the authentication JSON by editing your service account <a href=\"%1$s\" "
+"target=\"_blank\">here (opens in a new window)</a>."
+msgstr ""
+"Rufe die Authentifizierungs-JSON ab, indem du dein Dienstkonto <a "
+"href=\"%1$s\" target=\"_blank\">hier</a> bearbeitest <a href=\"%1$s\" "
+"target=\"_blank\">(wird in einem neuen Fenster geöffnet)</a>."
+
+#: app/GoogleCloudStorage.php:203 app/GoogleCloudStorage.php:750
+#: app/GoogleCloudStorage.php:920
+msgid "Bucket"
+msgstr "Bucket"
+
+#: app/GoogleCloudStorage.php:204 app/GoogleCloudStorage.php:751
+msgid ""
+"Set the name of the bucket to use for external files. Leave this field empty "
+"if you want to connect to different buckets."
+msgstr ""
+"Lege den Namen des Buckets fest, der für externe Dateien verwendet werden "
+"soll. Lasse dieses Feld leer, wenn du eine Verbindung zu verschiedenen "
+"Buckets herstellen möchtest."
+
+#: app/GoogleCloudStorage.php:212
+msgid "Files in storage"
+msgstr "Dateien im Speicher"
+
+#: app/GoogleCloudStorage.php:213
+msgid "View and import files"
+msgstr "Zeige und importiere Dateien"
+
+#: app/GoogleCloudStorage.php:224
+msgid "Hint"
+msgstr "Hinweis"
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:226
+#, php-format
+msgid ""
+"Each user will find its settings in his own <a href=\"%1$s\">user profile</"
+"a>."
+msgstr ""
+"Jeder Benutzer findet seine Einstellungen in seinem eigenem <a "
+"href=\"%1$s\">Benutzerprofil</a>."
+
+#: app/GoogleCloudStorage.php:268 app/GoogleCloudStorage.php:277
+msgid ""
+"<strong>Given JSON is not valid!</strong> Please use the JSON given to you "
+"by Google Cloud."
+msgstr ""
+"<strong>Die angegebene JSON-Datei ist ungültig!</strong> Bitte verwende die "
+"von Google Cloud bereitgestellte JSON-Datei."
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:394
+#, php-format
+msgid ""
+"Google Cloud Storage object could not be loaded. Take a look at the <a "
+"href=\"%1$s\" target=\"_blank\">log</a> for more information."
+msgstr ""
+"Das Google Cloud Storage-Objekt konnte nicht geladen werden. Weitere "
+"Informationen findest du im <a href=\"%1$s\" target=\"_blank\">Protokoll</a>."
+
+#: app/GoogleCloudStorage.php:408
+msgid "Google Cloud Storage bucket does not exist."
+msgstr "Der Google Cloud Storage-Bucket existiert nicht."
+
+#: app/GoogleCloudStorage.php:412
+msgid "Given bucket does not exist."
+msgstr "Der angegebene Bucket existiert nicht."
+
+#: app/GoogleCloudStorage.php:420 app/GoogleCloudStorage.php:557
+msgid "Google Cloud Storage bucket could not be loaded:"
+msgstr "Der Google Cloud Storage-Bucket konnte nicht geladen werden:"
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:425 app/GoogleCloudStorage.php:562
+#, php-format
+msgid ""
+"Google Cloud Storage bucket could not be loaded. Take a look at the <a "
+"href=\"%1$s\" target=\"_blank\">log</a> for more information."
+msgstr ""
+"Der Google Cloud Storage-Bucket konnte nicht geladen werden. Weitere "
+"Informationen finden Sie im <a href=\"%1$s\" target=\"_blank\">Protokoll</a>."
+
+#: app/GoogleCloudStorage.php:585
+msgid "Import"
+msgstr "Importieren"
+
+#: app/GoogleCloudStorage.php:587
+msgid "File-type is not supported"
+msgstr "Dateityp wird nicht unterstützt"
+
+#: app/GoogleCloudStorage.php:603
+msgid "Go to your bucket"
+msgstr "Gehe zu deinem Bucket"
+
+#: app/GoogleCloudStorage.php:607
+msgid "Settings"
+msgstr "Einstellungen"
+
+#: app/GoogleCloudStorage.php:611
+msgid "Save active directory as your external source"
+msgstr "Speichere das aktuelle Verzeichnis als externe Quelle"
+
+#: app/GoogleCloudStorage.php:685
+msgid ""
+"Error occurred during requesting the credential file for Google Cloud "
+"Storage."
+msgstr ""
+"Beim Abrufen der Anmeldedatei für Google Cloud Storage ist ein Fehler "
+"aufgetreten."
+
+#: app/GoogleCloudStorage.php:693
+msgid ""
+"The following error occurred during requesting the credential file for "
+"Google Cloud Storage:"
+msgstr ""
+"Beim Abrufen der Anmeldedatei für Google Cloud Storage ist ein Fehler "
+"aufgetreten:"
+
+#: app/GoogleCloudStorage.php:724
+msgid "Google Cloud Storage"
+msgstr "Google Cloud Storage"
+
+#: app/GoogleCloudStorage.php:912
+msgid "Enter your authentication JSON here"
+msgstr "Gib hier deine Authentifizierungs-JSON ein"
+
+#: app/GoogleCloudStorage.php:921
+msgid "Your bucket"
+msgstr "Dein Bucket"
+
+#: app/GoogleCloudStorage.php:943
+msgid "Connect to your Google Cloud Storage"
+msgstr "Verbinde zu deinem Google Cloud Storage"
+
+#: app/GoogleCloudStorage.php:947
+msgid "Enter your access credentials"
+msgstr "Gibt deine Zugangsdaten ein"
+
+#: app/GoogleCloudStorage.php:962
+msgid ""
+"An authentication JSON has already been set by an administrator in the "
+"plugin settings. Just connect for show the files."
+msgstr ""
+"Eine Authentifizierungs-JSON wurde bereits von einem Administrator in den "
+"Plugin-Einstellungen festgelegt. Stelle einfach eine Verbindung her, um die "
+"Dateien anzuzeigen."
+
+#: app/GoogleCloudStorage.php:966
+msgid ""
+"An authentication JSON must be set by an administrator in the plugin "
+"settings."
+msgstr ""
+"Eine Authentifizierungs-JSON muss von einem Administrator in den Plugin-"
+"Einstellungen festgelegt werden."
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:971
+#, php-format
+msgid "Set your authentication JSON <a href=\"%1$s\">here</a>."
+msgstr "Lege deine Authentifizierungs-JSON <a href=\"%1$s\">hier</a> fest."
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:975
+#, php-format
+msgid ""
+"Your access token is already set <a href=\"%1$s\">here</a>. Just connect for "
+"show the files."
+msgstr ""
+"Dein Zugriffstoken ist bereits <a href=\"%1$s\">hier</a> eingerichtet. "
+"Stelle einfach eine Verbindung her, um die Dateien anzuzeigen."
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:982
+#, php-format
+msgid "Set your authentication JSON <a href=\"%1$s\">in your profile</a>."
+msgstr ""
+"Lege deine Authentifizierungs-JSON <a href=\"%1$s\">in deinem Profil</a> "
+"fest."
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:986
+#, php-format
+msgid ""
+"Your authentication JSON is already set <a href=\"%1$s\">in your profile</"
+"a>. Just connect for show the files."
+msgstr ""
+"Deine Authentifizierungs-JSON ist bereits <a href=\"%1$s\">in deinem Profil</"
+"a> festgelegt. Stelle einfach eine Verbindung her, um die Dateien anzuzeigen."
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage.php:990
+#, php-format
+msgid ""
+"Get the authentication JSON by editing your service account <a href=\"%1$s\" "
+"target=\"_blank\">here</a> and enter the name of the bucket you want to "
+"connect to."
+msgstr ""
+"Rufe die Authentifizierungs-JSON ab, indem du dein Dienstkonto <a "
+"href=\"%1$s\" target=\"_blank\">hier</a> bearbeitest und den Namen des "
+"Buckets eingibst, mit dem du dich verbinden möchtest."
+
+#: app/GoogleCloudStorage.php:1032
+msgid "Error during request of Google Cloud Storage IAM infos:"
+msgstr ""
+"Beim Abrufen der Informationen vom Google Cloud Storage ist ein Fehler "
+"aufgetreten:"
+
+#: app/GoogleCloudStorage.php:1055 app/GoogleCloudStorage/Protocol.php:185
+msgid "Error during request of Google Cloud Storage IAM binding data:"
+msgstr ""
+"Beim Abrufen der Informationen vom Google Cloud Storage ist ein Fehler "
+"aufgetreten:"
+
+#: app/GoogleCloudStorage/Export.php:90
+msgid ""
+"Bucket seems not to be public. File will not be exported for your Google "
+"Cloud Storage."
+msgstr ""
+"Der Bucket scheint nicht öffentlich zu sein. Die Datei wird nicht in dein "
+"Google Cloud Storage exportiert."
+
+#: app/GoogleCloudStorage/Export.php:102
+msgid "Could not load file path for given attachment ID."
+msgstr ""
+"Der Dateipfad für die angegebene Anhang-ID konnte nicht geladen werden."
+
+#: app/GoogleCloudStorage/Export.php:114
+msgid "Given file does not exist:"
+msgstr "Die angegebene Datei existiert nicht:"
+
+#: app/GoogleCloudStorage/Protocol.php:105
+#: app/GoogleCloudStorage/Protocol.php:304
+msgid "Specified URL already exist in your media library."
+msgstr "Die angegebene URL ist bereits in deiner Medienbibliothek vorhanden."
+
+#: app/GoogleCloudStorage/Protocol.php:134
+msgid "Error during request of file data from Google Cloud Storage:"
+msgstr "Fehler beim Abrufen von Dateidaten aus Google Cloud Storage:"
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage/Protocol.php:139
+#, php-format
+msgid ""
+"Error during request of file data from Google Cloud Storage. Check the <a "
+"href=\"%1$s\" target=\"_blank\">log</a> for detailed information."
+msgstr ""
+"Fehler beim Abrufen von Dateidaten aus Google Cloud Storage. Detaillierte "
+"Informationen findest du im <a href=\"%1$s\" target=\"_blank\">Protokoll</a>."
+
+#. translators: %1$s will be replaced by a URL.
+#: app/GoogleCloudStorage/Protocol.php:190
+#, php-format
+msgid ""
+"Error during request of Google Cloud Storage IAM binding data. Check the <a "
+"href=\"%1$s\" target=\"_blank\">log</a> for detailed information."
+msgstr ""
+"Fehler beim Abrufen der IAM-Bindungsdaten von Google Cloud Storage. "
+"Detaillierte Informationen findest du im <a href=\"%1$s\" "
+"target=\"_blank\">Protokoll</a>."
