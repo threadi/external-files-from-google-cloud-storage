@@ -8,6 +8,9 @@
 namespace ExternalFilesFromGoogleCloudStorage\Plugin;
 
 // prevent direct access.
+use ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
+use ExternalFilesInMediaLibrary\Plugin\Roles;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -53,6 +56,10 @@ class Init {
 	 * @return void
 	 */
 	public function init(): void {
+		// plugin-action.
+		register_activation_hook( EFMLGCS_PLUGIN, array( $this, 'activation' ) );
+
+		// add the service.
 		add_filter( 'efml_services_support', array( $this, 'add_service' ) );
 	}
 
@@ -66,5 +73,15 @@ class Init {
 	public function add_service( array $services ): array {
 		$services[] = 'ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage';
 		return $services;
+	}
+
+	/**
+	 * Run during plugin activation.
+	 *
+	 * @return void
+	 */
+	public function activation(): void {
+		// set the capabilities for this new service.
+		Roles::get_instance()->set( array( 'administrator', 'editor' ), 'efml_cap_' . GoogleCloudStorage::get_instance()->get_name() );
 	}
 }

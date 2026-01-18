@@ -21,7 +21,7 @@ use Google\Cloud\Storage\Bucket;
 use Google\Cloud\Storage\StorageClient;
 
 /**
- * Object for export files to GoogleDrive.
+ * Object for export files to GoogleCloudStorage.
  */
 class Export extends Export_Base {
 	/**
