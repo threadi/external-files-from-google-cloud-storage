@@ -1,8 +1,8 @@
-# External files from Google Cloud Storage
+# External files from Google Cloud Storage in Media Library
 
 ## About
 
-This repository provides the features of the WordPress plugin _External Files from Google Cloud Storage_. The repository is used as a basis for deploying the plugin to the WordPress repository. It is not intended to run as a plugin as it is, even if that is possible for development.
+This repository provides the features of the WordPress plugin _External Files from Google Cloud Storage in Media Library_. The repository is used as a basis for deploying the plugin to the WordPress repository. It is not intended to run as a plugin as it is, even if that is possible for development.
 
 ## Hint
 
@@ -53,6 +53,10 @@ Run in the main directory:
 2. Go to "File" > "Save".
 3. Upload the generated .mo-file and the .po-file to the plugin-folder languages/
 
+### generate optimized PHP-file
+
+`wp i18n make-php languages`
+
 ## Check for WordPress Coding Standards
 
 ### Initialize
@@ -73,7 +77,7 @@ Run in the main directory:
 
 ## Check for WordPress VIP Coding Standards
 
-Hint: this check runs against the VIP-GO-platform which is not our target for this plugin. Many warnings can be ignored.
+Hint: this check runs against the "VIP-GO-platform", that is not our target for this plugin. Many warnings can be ignored.
 
 ### Run
 

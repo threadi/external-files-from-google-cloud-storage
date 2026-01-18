@@ -1,4 +1,4 @@
-=== External files from Google Cloud Storage ===
+=== External files from Google Cloud Storage in Media Library ===
 Contributors: threadi
 Tags: external files, media library, google cloud storage
 Requires at least: 6.2
@@ -9,11 +9,11 @@ License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Stable tag: @@VersionNumber@@
 
-Add the possibility to import, export and synchronise files from and to Google Cloud Storage. Your need the plugin Externale Files in Media Library to use it.
+Add the possibility to import, export and synchronise files from and to Google Cloud Storage. Your need the plugin "Externale Files in Media Library" to use it.
 
 == Description ==
 
-Add the possibility to import, export and synchronise files from and to Google Cloud Storage. Your need the plugin Externale Files in Media Library to use it.
+Add the possibility to import, export and synchronise files from and to Google Cloud Storage. Your need the plugin "Externale Files in Media Library" to use it.
 
 == Repository, documentation and reliability ==
 

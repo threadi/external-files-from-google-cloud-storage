@@ -118,7 +118,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		}
 
 		// set title.
-		$this->title = __( 'Choose file(s) from your Google Cloud Storage', 'external-files-in-media-library' ); // @phpstan-ignore property.notFound
+		$this->title = __( 'Choose file(s) from your Google Cloud Storage', 'external-files-from-google-cloud-storage' ); // @phpstan-ignore property.notFound
 
 		// use our own hooks.
 		add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
@@ -187,9 +187,9 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$setting->set_read_callback( array( $this, 'decrypt_value' ) );
 			$setting->set_save_callback( array( $this, 'encrypt_value' ) );
 			$field = new Textarea();
-			$field->set_title( __( 'Authentication JSON', 'external-files-in-media-library' ) );
+			$field->set_title( __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) );
 			/* translators: %1$s will be replaced by a URL. */
-			$field->set_description( sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-in-media-library' ), $this->get_console_url() ) );
+			$field->set_description( sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() ) );
 			$field->set_sanitize_callback( array( $this, 'validate_json' ) );
 			$setting->set_field( $field );
 
@@ -200,8 +200,8 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$setting->set_type( 'string' );
 			$setting->set_default( '' );
 			$field = new Text();
-			$field->set_title( __( 'Bucket', 'external-files-in-media-library' ) );
-			$field->set_description( __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-in-media-library' ) );
+			$field->set_title( __( 'Bucket', 'external-files-from-google-cloud-storage' ) );
+			$field->set_description( __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-from-google-cloud-storage' ) );
 			$setting->set_field( $field );
 
 			// show button to go to the files.
@@ -209,8 +209,8 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$setting->set_section( $section );
 			$setting->prevent_export( true );
 			$field = new Button();
-			$field->set_title( __( 'Files in storage', 'external-files-in-media-library' ) );
-			$field->set_button_title( __( 'View and import files', 'external-files-in-media-library' ) );
+			$field->set_title( __( 'Files in storage', 'external-files-from-google-cloud-storage' ) );
+			$field->set_button_title( __( 'View and import files', 'external-files-from-google-cloud-storage' ) );
 			$field->set_button_url( Directory_Listing::get_instance()->get_view_directory_url( $this ) );
 			$setting->set_field( $field );
 		}
@@ -221,9 +221,9 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$setting->set_show_in_rest( false );
 			$setting->prevent_export( true );
 			$field = new TextInfo();
-			$field->set_title( __( 'Hint', 'external-files-in-media-library' ) );
+			$field->set_title( __( 'Hint', 'external-files-from-google-cloud-storage' ) );
 			/* translators: %1$s will be replaced by a URL. */
-			$field->set_description( sprintf( __( 'Each user will find its settings in his own <a href="%1$s">user profile</a>.', 'external-files-in-media-library' ), $this->get_config_url() ) );
+			$field->set_description( sprintf( __( 'Each user will find its settings in his own <a href="%1$s">user profile</a>.', 'external-files-from-google-cloud-storage' ), $this->get_config_url() ) );
 			$setting->set_field( $field );
 		}
 	}
@@ -265,7 +265,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// bail on error.
 		if ( json_last_error() !== JSON_ERROR_NONE ) {
 			// show error.
-			add_settings_error( 'eml_google_cloud_storage_json', 'eml_google_cloud_storage_json', __( '<strong>Given JSON is not valid!</strong> Please use the JSON given to you by Google Cloud.', 'external-files-in-media-library' ) );
+			add_settings_error( 'eml_google_cloud_storage_json', 'eml_google_cloud_storage_json', __( '<strong>Given JSON is not valid!</strong> Please use the JSON given to you by Google Cloud.', 'external-files-from-google-cloud-storage' ) );
 
 			// return empty string.
 			return '';
@@ -274,7 +274,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// bail if necessary data for Google Cloud Storage are not included in the array.
 		if ( ! isset( $array['type'] ) ) {
 			// show error.
-			add_settings_error( 'eml_google_cloud_storage_json', 'eml_google_cloud_storage_json', __( '<strong>Given JSON is not valid!</strong> Please use the JSON given to you by Google Cloud.', 'external-files-in-media-library' ) );
+			add_settings_error( 'eml_google_cloud_storage_json', 'eml_google_cloud_storage_json', __( '<strong>Given JSON is not valid!</strong> Please use the JSON given to you by Google Cloud.', 'external-files-from-google-cloud-storage' ) );
 
 			// return empty string.
 			return '';
@@ -391,7 +391,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			// create an error object.
 			$error = new WP_Error();
 			/* translators: %1$s will be replaced by a URL. */
-			$error->add( 'efml_service_googlecloudstorage', sprintf( __( 'Google Cloud Storage object could not be loaded. Take a look at the <a href="%1$s" target="_blank">log</a> for more information.', 'external-files-in-media-library' ), Helper::get_log_url() ) );
+			$error->add( 'efml_service_googlecloudstorage', sprintf( __( 'Google Cloud Storage object could not be loaded. Take a look at the <a href="%1$s" target="_blank">log</a> for more information.', 'external-files-from-google-cloud-storage' ), Helper::get_log_url() ) );
 			$this->add_error( $error );
 
 			// do nothing more.
@@ -405,11 +405,11 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		try {
 			if ( ! $bucket->exists() ) {
 				// log this event.
-				Log::get_instance()->create( __( 'Google Cloud Storage bucket does not exist.', 'external-files-in-media-library' ), '', 'info' );
+				Log::get_instance()->create( __( 'Google Cloud Storage bucket does not exist.', 'external-files-from-google-cloud-storage' ), '', 'info' );
 
 				// create an error object.
 				$error = new WP_Error();
-				$error->add( 'efml_service_googlecloudstorage', __( 'Given bucket does not exist.', 'external-files-in-media-library' ) );
+				$error->add( 'efml_service_googlecloudstorage', __( 'Given bucket does not exist.', 'external-files-from-google-cloud-storage' ) );
 				$this->add_error( $error );
 
 				// do nothing more.
@@ -417,12 +417,12 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			}
 		} catch ( Exception $e ) {
 			// log this event.
-			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-in-media-library' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error' );
+			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error' );
 
 			// create an error object.
 			$error = new WP_Error();
 			/* translators: %1$s will be replaced by a URL. */
-			$error->add( 'efml_service_googlecloudstorage', sprintf( __( 'Google Cloud Storage bucket could not be loaded. Take a look at the <a href="%1$s" target="_blank">log</a> for more information.', 'external-files-in-media-library' ), Helper::get_log_url() ) );
+			$error->add( 'efml_service_googlecloudstorage', sprintf( __( 'Google Cloud Storage bucket could not be loaded. Take a look at the <a href="%1$s" target="_blank">log</a> for more information.', 'external-files-from-google-cloud-storage' ), Helper::get_log_url() ) );
 			$this->add_error( $error );
 
 			// do nothing more.
@@ -554,12 +554,12 @@ class GoogleCloudStorage extends Service_Base implements Service {
 				}
 			}
 		} catch ( Exception $e ) {
-			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-in-media-library' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error' );
+			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error' );
 
 			// create an error object.
 			$error = new WP_Error();
 			/* translators: %1$s will be replaced by a URL. */
-			$error->add( 'efml_service_googlecloudstorage', sprintf( __( 'Google Cloud Storage bucket could not be loaded. Take a look at the <a href="%1$s" target="_blank">log</a> for more information.', 'external-files-in-media-library' ), Helper::get_log_url() ) );
+			$error->add( 'efml_service_googlecloudstorage', sprintf( __( 'Google Cloud Storage bucket could not be loaded. Take a look at the <a href="%1$s" target="_blank">log</a> for more information.', 'external-files-from-google-cloud-storage' ), Helper::get_log_url() ) );
 			$this->add_error( $error );
 
 			// do nothing more.
@@ -582,9 +582,9 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		return array(
 			array(
 				'action' => 'efml_get_import_dialog( { "service": "' . $this->get_name() . '", "urls": file.file, "fields": config.fields, "term": term } );',
-				'label'  => __( 'Import', 'external-files-in-media-library' ),
+				'label'  => __( 'Import', 'external-files-from-google-cloud-storage' ),
 				'show'   => 'let mimetypes = "' . $mimetypes . '";mimetypes.includes( file["mime-type"] )',
-				'hint'   => '<span class="dashicons dashicons-editor-help" title="' . esc_attr__( 'File-type is not supported', 'external-files-in-media-library' ) . '"></span>',
+				'hint'   => '<span class="dashicons dashicons-editor-help" title="' . esc_attr__( 'File-type is not supported', 'external-files-from-google-cloud-storage' ) . '"></span>',
 			),
 		);
 	}
@@ -600,15 +600,15 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			array(
 				array(
 					'action' => 'location.href="https://console.cloud.google.com/storage/browser/";',
-					'label'  => __( 'Go to your bucket', 'external-files-in-media-library' ),
+					'label'  => __( 'Go to your bucket', 'external-files-from-google-cloud-storage' ),
 				),
 				array(
 					'action' => 'location.href="' . esc_url( $this->get_config_url() ) . '";',
-					'label'  => __( 'Settings', 'external-files-in-media-library' ),
+					'label'  => __( 'Settings', 'external-files-from-google-cloud-storage' ),
 				),
 				array(
 					'action' => 'efml_save_as_directory( "' . $this->get_name() . '", actualDirectoryPath, config.fields, config.term );',
-					'label'  => __( 'Save active directory as your external source', 'external-files-in-media-library' ),
+					'label'  => __( 'Save active directory as your external source', 'external-files-from-google-cloud-storage' ),
 				),
 			)
 		);
@@ -682,7 +682,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		} catch ( Error $e ) {
 			// create the error entry.
 			$error_obj = new Url_Result();
-			$error_obj->set_result_text( __( 'Error occurred during requesting the credential file for Google Cloud Storage.', 'external-files-in-media-library' ) );
+			$error_obj->set_result_text( __( 'Error occurred during requesting the credential file for Google Cloud Storage.', 'external-files-from-google-cloud-storage' ) );
 			$error_obj->set_url( $this->get_url( '' ) );
 			$error_obj->set_error( true );
 
@@ -690,7 +690,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			Results::get_instance()->add( $error_obj );
 
 			// add log entry.
-			Log::get_instance()->create( __( 'The following error occurred during requesting the credential file for Google Cloud Storage:', 'external-files-in-media-library' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url( '' ), 'error' );
+			Log::get_instance()->create( __( 'The following error occurred during requesting the credential file for Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url( '' ), 'error' );
 
 			// do nothing more.
 			return false;
@@ -721,7 +721,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			return;
 		}
 
-		?><h3 id="efml-<?php echo esc_attr( $this->get_name() ); ?>"><?php echo esc_html__( 'Google Cloud Storage', 'external-files-in-media-library' ); ?></h3>
+		?><h3 id="efml-<?php echo esc_attr( $this->get_name() ); ?>"><?php echo esc_html__( 'Google Cloud Storage', 'external-files-from-google-cloud-storage' ); ?></h3>
 		<div class="efml-user-settings">
 			<?php
 
@@ -741,14 +741,14 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	public function get_user_settings(): array {
 		$list = array(
 			'google_cloud_storage_json'   => array(
-				'label'       => __( 'Authentication JSON', 'external-files-in-media-library' ),
+				'label'       => __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ),
 				/* translators: %1$s will be replaced by a URL. */
-				'description' => sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-in-media-library' ), $this->get_console_url() ),
+				'description' => sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() ),
 				'field'       => 'textarea',
 			),
 			'google_cloud_storage_bucket' => array(
-				'label'       => __( 'Bucket', 'external-files-in-media-library' ),
-				'description' => __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-in-media-library' ),
+				'label'       => __( 'Bucket', 'external-files-from-google-cloud-storage' ),
+				'description' => __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-from-google-cloud-storage' ),
 				'field'       => 'text',
 			),
 		);
@@ -908,8 +908,8 @@ class GoogleCloudStorage extends Service_Base implements Service {
 				'authentication_json' => array(
 					'name'        => 'authentication_json',
 					'type'        => 'textarea',
-					'label'       => __( 'Authentication JSON', 'external-files-in-media-library' ),
-					'placeholder' => __( 'Enter your authentication JSON here', 'external-files-in-media-library' ),
+					'label'       => __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ),
+					'placeholder' => __( 'Enter your authentication JSON here', 'external-files-from-google-cloud-storage' ),
 					'readonly'    => $this->is_mode( 'user' ) || $this->is_mode( 'global' ),
 					'value'       => $authentication_json,
 					'credential'  => true,
@@ -917,8 +917,8 @@ class GoogleCloudStorage extends Service_Base implements Service {
 				'bucket'              => array(
 					'name'        => 'bucket',
 					'type'        => 'text',
-					'label'       => __( 'Bucket', 'external-files-in-media-library' ),
-					'placeholder' => __( 'Your bucket', 'external-files-in-media-library' ),
+					'label'       => __( 'Bucket', 'external-files-from-google-cloud-storage' ),
+					'placeholder' => __( 'Your bucket', 'external-files-from-google-cloud-storage' ),
 					'readonly'    => ! empty( $bucket ),
 					'value'       => $bucket,
 				),
@@ -940,11 +940,11 @@ class GoogleCloudStorage extends Service_Base implements Service {
 
 		// show other title if access token is set.
 		if ( ! empty( $authentication_json ) && ! $this->is_mode( 'manually' ) ) {
-			return __( 'Connect to your Google Cloud Storage', 'external-files-in-media-library' );
+			return __( 'Connect to your Google Cloud Storage', 'external-files-from-google-cloud-storage' );
 		}
 
 		// return default title.
-		return __( 'Enter your access credentials', 'external-files-in-media-library' );
+		return __( 'Enter your access credentials', 'external-files-from-google-cloud-storage' );
 	}
 
 	/**
@@ -959,35 +959,35 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// if access token is set in plugin settings.
 		if ( $this->is_mode( 'global' ) ) {
 			if ( ! empty( $authentication_json ) && ! current_user_can( 'manage_options' ) ) {
-				return __( 'An authentication JSON has already been set by an administrator in the plugin settings. Just connect for show the files.', 'external-files-in-media-library' );
+				return __( 'An authentication JSON has already been set by an administrator in the plugin settings. Just connect for show the files.', 'external-files-from-google-cloud-storage' );
 			}
 
 			if ( empty( $authentication_json ) && ! current_user_can( 'manage_options' ) ) {
-				return __( 'An authentication JSON must be set by an administrator in the plugin settings.', 'external-files-in-media-library' );
+				return __( 'An authentication JSON must be set by an administrator in the plugin settings.', 'external-files-from-google-cloud-storage' );
 			}
 
 			if ( empty( $authentication_json ) ) {
 				/* translators: %1$s will be replaced by a URL. */
-				return sprintf( __( 'Set your authentication JSON <a href="%1$s">here</a>.', 'external-files-in-media-library' ), $this->get_config_url() );
+				return sprintf( __( 'Set your authentication JSON <a href="%1$s">here</a>.', 'external-files-from-google-cloud-storage' ), $this->get_config_url() );
 			}
 
 			/* translators: %1$s will be replaced by a URL. */
-			return sprintf( __( 'Your access token is already set <a href="%1$s">here</a>. Just connect for show the files.', 'external-files-in-media-library' ), $this->get_config_url() );
+			return sprintf( __( 'Your access token is already set <a href="%1$s">here</a>. Just connect for show the files.', 'external-files-from-google-cloud-storage' ), $this->get_config_url() );
 		}
 
 		// if authentication JSON is set per user.
 		if ( $this->is_mode( 'user' ) ) {
 			if ( empty( $authentication_json ) ) {
 				/* translators: %1$s will be replaced by a URL. */
-				return sprintf( __( 'Set your authentication JSON <a href="%1$s">in your profile</a>.', 'external-files-in-media-library' ), $this->get_config_url() );
+				return sprintf( __( 'Set your authentication JSON <a href="%1$s">in your profile</a>.', 'external-files-from-google-cloud-storage' ), $this->get_config_url() );
 			}
 
 			/* translators: %1$s will be replaced by a URL. */
-			return sprintf( __( 'Your authentication JSON is already set <a href="%1$s">in your profile</a>. Just connect for show the files.', 'external-files-in-media-library' ), $this->get_config_url() );
+			return sprintf( __( 'Your authentication JSON is already set <a href="%1$s">in your profile</a>. Just connect for show the files.', 'external-files-from-google-cloud-storage' ), $this->get_config_url() );
 		}
 
 		/* translators: %1$s will be replaced by a URL. */
-		return sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here</a> and enter the name of the bucket you want to connect to.', 'external-files-in-media-library' ), $this->get_console_url() );
+		return sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here</a> and enter the name of the bucket you want to connect to.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() );
 	}
 
 	/**
@@ -1029,7 +1029,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		try {
 			$iam = $bucket->iam();
 		} catch ( Exception $e ) {
-			Log::get_instance()->create( __( 'Error during request of Google Cloud Storage IAM infos:', 'external-files-in-media-library' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error', 1 );
+			Log::get_instance()->create( __( 'Error during request of Google Cloud Storage IAM infos:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error', 1 );
 
 			// do nothing more.
 			return false;
@@ -1052,7 +1052,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 					}
 				}
 			} catch ( Exception $e ) {
-				Log::get_instance()->create( __( 'Error during request of Google Cloud Storage IAM binding data:', 'external-files-in-media-library' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error', 1 );
+				Log::get_instance()->create( __( 'Error during request of Google Cloud Storage IAM binding data:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error', 1 );
 
 				// do nothing more.
 				return false;

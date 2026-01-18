@@ -2,7 +2,7 @@
 /**
  * File, which handles the Google Cloud Storage support as own protocol.
  *
- * @package external-files-in-media-library
+ * @package external-files-from-google-cloud-storage
  */
 
 namespace ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
@@ -102,7 +102,7 @@ class Protocol extends Protocol_Base {
 
 		// check for duplicate.
 		if ( $this->check_for_duplicate( $this->get_url() ) ) {
-			Log::get_instance()->create( __( 'Specified URL already exist in your media library.', 'external-files-in-media-library' ), $this->get_url(), 'error', 0, Import::get_instance()->get_identifier() );
+			Log::get_instance()->create( __( 'Specified URL already exist in your media library.', 'external-files-from-google-cloud-storage' ), $this->get_url(), 'error', 0, Import::get_instance()->get_identifier() );
 
 			// return an empty list as we could not analyse the file.
 			return array();
@@ -131,12 +131,12 @@ class Protocol extends Protocol_Base {
 		try {
 			$file_data = $file->info();
 		} catch ( Exception $e ) {
-			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-in-media-library' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error', 1 );
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error', 1 );
 
 			// create the error entry.
 			$error_obj = new Url_Result();
 			/* translators: %1$s will be replaced by a URL. */
-			$error_obj->set_result_text( sprintf( __( 'Error during request of file data from Google Cloud Storage. Check the <a href="%1$s" target="_blank">log</a> for detailed information.', 'external-files-in-media-library' ), Helper::get_log_url( $this->get_url() ) ) );
+			$error_obj->set_result_text( sprintf( __( 'Error during request of file data from Google Cloud Storage. Check the <a href="%1$s" target="_blank">log</a> for detailed information.', 'external-files-from-google-cloud-storage' ), Helper::get_log_url( $this->get_url() ) ) );
 			$error_obj->set_url( $this->get_url() );
 			$error_obj->set_error( true );
 
@@ -182,12 +182,12 @@ class Protocol extends Protocol_Base {
 			// write it to the tmp file.
 			$wp_filesystem->put_contents( $results['tmp-file'], $content );
 		} catch ( Exception $e ) {
-			Log::get_instance()->create( __( 'Error during request of Google Cloud Storage IAM binding data:', 'external-files-in-media-library' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error', 1 );
+			Log::get_instance()->create( __( 'Error during request of Google Cloud Storage IAM binding data:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error', 1 );
 
 			// create the error entry.
 			$error_obj = new Url_Result();
 			/* translators: %1$s will be replaced by a URL. */
-			$error_obj->set_result_text( sprintf( __( 'Error during request of Google Cloud Storage IAM binding data. Check the <a href="%1$s" target="_blank">log</a> for detailed information.', 'external-files-in-media-library' ), Helper::get_log_url( $this->get_url() ) ) );
+			$error_obj->set_result_text( sprintf( __( 'Error during request of Google Cloud Storage IAM binding data. Check the <a href="%1$s" target="_blank">log</a> for detailed information.', 'external-files-from-google-cloud-storage' ), Helper::get_log_url( $this->get_url() ) ) );
 			$error_obj->set_url( $this->get_url() );
 			$error_obj->set_error( true );
 
@@ -301,7 +301,7 @@ class Protocol extends Protocol_Base {
 
 			// check for duplicate.
 			if ( $this->check_for_duplicate( $url ) ) {
-				Log::get_instance()->create( __( 'Specified URL already exist in your media library.', 'external-files-in-media-library' ), esc_url( $this->get_url() ), 'error' );
+				Log::get_instance()->create( __( 'Specified URL already exist in your media library.', 'external-files-from-google-cloud-storage' ), esc_url( $this->get_url() ), 'error' );
 
 				continue;
 			}

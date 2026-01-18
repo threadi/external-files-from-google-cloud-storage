@@ -2,7 +2,7 @@
 /**
  * File to handle export tasks for Google Cloud Storage.
  *
- * @package external-files-in-media-library
+ * @package external-files-from-google-cloud-storage
  */
 
 namespace ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
@@ -21,7 +21,7 @@ use Google\Cloud\Storage\Bucket;
 use Google\Cloud\Storage\StorageClient;
 
 /**
- * Object for export files to GoogleDrive.
+ * Object for export files to GoogleCloudStorage.
  */
 class Export extends Export_Base {
 	/**
@@ -87,7 +87,7 @@ class Export extends Export_Base {
 		// bail if bucket is not public.
 		if ( ! $google_cloud_storage_obj->is_bucket_public( $bucket ) ) {
 			// log this event.
-			Log::get_instance()->create( __( 'Bucket seems not to be public. File will not be exported for your Google Cloud Storage.', 'external-files-in-media-library' ), $target, 'error' );
+			Log::get_instance()->create( __( 'Bucket seems not to be public. File will not be exported for your Google Cloud Storage.', 'external-files-from-google-cloud-storage' ), $target, 'error' );
 
 			// do nothing more.
 			return false;
@@ -99,7 +99,7 @@ class Export extends Export_Base {
 		// bail if no file could be found.
 		if ( ! is_string( $file_path ) ) {
 			// log this event.
-			Log::get_instance()->create( __( 'Could not load file path for given attachment ID.', 'external-files-in-media-library' ), $target, 'error' );
+			Log::get_instance()->create( __( 'Could not load file path for given attachment ID.', 'external-files-from-google-cloud-storage' ), $target, 'error' );
 
 			// do nothing more.
 			return false;
@@ -111,7 +111,7 @@ class Export extends Export_Base {
 		// bail if source file does not exist.
 		if ( ! $wp_filesystem_local->exists( $file_path ) ) {
 			// log this event.
-			Log::get_instance()->create( __( 'Given file does not exist:', 'external-files-in-media-library' ) . ' <code>' . wp_json_encode( $file_path ) . '</code>', $target, 'error' );
+			Log::get_instance()->create( __( 'Given file does not exist:', 'external-files-from-google-cloud-storage' ) . ' <code>' . wp_json_encode( $file_path ) . '</code>', $target, 'error' );
 
 			// do nothing more.
 			return false;
