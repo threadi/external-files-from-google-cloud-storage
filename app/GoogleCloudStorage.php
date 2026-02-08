@@ -1062,4 +1062,13 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// return the result.
 		return $public_access_allowed;
 	}
+
+	/**
+	 * Return the default roles to use for this service.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_default_roles(): array {
+		return array( 'administrator', 'editor' );
+	}
 }
