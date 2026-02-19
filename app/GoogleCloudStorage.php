@@ -353,7 +353,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return string
 	 */
 	public function get_directory(): string {
-		// bail if directory is set on object.
+		// bail if directory is set on the object.
 		if ( ! empty( $this->directory ) ) {
 			return $this->directory;
 		}
@@ -615,7 +615,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	}
 
 	/**
-	 * Return the URL mark which identifies Google Cloud Storage URLs within this plugin.
+	 * Return the URL mark, which identifies Google Cloud Storage URLs within this plugin.
 	 *
 	 * @return string
 	 */

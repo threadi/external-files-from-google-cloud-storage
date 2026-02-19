@@ -38,7 +38,6 @@
     },
     "require": {
         "php": "^8.1",
-        "google/cloud-storage": "^1.48",
-        "afragen/git-updater-lite": "^2"
+        "google/cloud-storage": "^1.48"
     }
 }

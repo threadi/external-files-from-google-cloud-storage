@@ -47,12 +47,7 @@ class Protocol extends Protocol_Base {
 	 */
 	public function is_url_compatible(): bool {
 		// bail if this is not a Google Cloud Storage URL.
-		if ( ! str_starts_with( $this->get_url(), GoogleCloudStorage::get_instance()->get_url_mark() ) ) {
-			return false;
-		}
-
-		// return true to use this protocol.
-		return true;
+		return ! ( ! str_starts_with( $this->get_url(), GoogleCloudStorage::get_instance()->get_url_mark() ) && ! str_starts_with( $this->get_url(), GoogleCloudStorage::get_instance()->get_directory() ) );
 	}
 
 	/**

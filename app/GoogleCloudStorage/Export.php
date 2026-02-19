@@ -10,13 +10,10 @@ namespace ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
 // prevent direct access.
 defined( 'ABSPATH' ) || exit;
 
+use ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
 use ExternalFilesInMediaLibrary\ExternalFiles\Export_Base;
-use ExternalFilesInMediaLibrary\ExternalFiles\Import;
-use ExternalFilesInMediaLibrary\ExternalFiles\Results;
-use ExternalFilesInMediaLibrary\ExternalFiles\Results\Url_Result;
 use ExternalFilesInMediaLibrary\Plugin\Helper;
 use ExternalFilesInMediaLibrary\Plugin\Log;
-use ExternalFilesInMediaLibrary\Services\GoogleCloudStorage;
 use Google\Cloud\Storage\Bucket;
 use Google\Cloud\Storage\StorageClient;
 
@@ -68,7 +65,7 @@ class Export extends Export_Base {
 		// get the fields.
 		$fields = $credentials['fields'];
 
-		// get main object.
+		// get the main object.
 		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
 
 		// get the bucket.
@@ -105,7 +102,7 @@ class Export extends Export_Base {
 			return false;
 		}
 
-		// get the local WP_Filesystem.
+		// get the local "WP_Filesystem".
 		$wp_filesystem_local = Helper::get_wp_filesystem();
 
 		// bail if source file does not exist.
@@ -181,7 +178,7 @@ class Export extends Export_Base {
 	 * @return Bucket|false
 	 */
 	private function get_bucket_object( array $fields ): Bucket|false {
-		// get main object.
+		// get the main object.
 		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
 		$google_cloud_storage_obj->set_fields( $fields );
 
