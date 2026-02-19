@@ -72,10 +72,6 @@ Run in the main directory:
 
 `vendor/bin/phpcbf --standard=ruleset.xml .`
 
-## Generate documentation
-
-`vendor/bin/wp-documentor parse app --format=markdown --output=docs/hooks.md --prefix=emlgcs_`
-
 ## Check for WordPress VIP Coding Standards
 
 Hint: this check runs against the "VIP-GO-platform", that is not our target for this plugin. Many warnings can be ignored.
