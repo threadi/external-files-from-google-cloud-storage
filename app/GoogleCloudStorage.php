@@ -10,16 +10,15 @@ namespace ExternalFilesFromGoogleCloudStorage;
 // prevent direct access.
 defined( 'ABSPATH' ) || exit;
 
+use easySettingsForWordPress\Fields\Button;
+use easySettingsForWordPress\Fields\Text;
+use easySettingsForWordPress\Fields\Textarea;
+use easySettingsForWordPress\Fields\TextInfo;
+use easySettingsForWordPress\Page;
+use easySettingsForWordPress\Section;
+use easySettingsForWordPress\Tab;
 use Exception;
 use ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage\Export;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Fields\Button;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Fields\Text;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Fields\Textarea;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Fields\TextInfo;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Page;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Section;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Settings;
-use ExternalFilesInMediaLibrary\Dependencies\easySettingsForWordPress\Tab;
 use ExternalFilesInMediaLibrary\ExternalFiles\Export_Base;
 use ExternalFilesInMediaLibrary\ExternalFiles\ImportDialog;
 use ExternalFilesInMediaLibrary\ExternalFiles\Results;
@@ -28,6 +27,7 @@ use ExternalFilesInMediaLibrary\Plugin\Admin\Directory_Listing;
 use easyDirectoryListingForWordPress\Crypt;
 use ExternalFilesInMediaLibrary\Plugin\Helper;
 use ExternalFilesInMediaLibrary\Plugin\Log;
+use ExternalFilesInMediaLibrary\Plugin\Settings;
 use ExternalFilesInMediaLibrary\Services\Service;
 use ExternalFilesInMediaLibrary\Services\Service_Base;
 use Google\Cloud\Storage\Bucket;
@@ -143,8 +143,13 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			return;
 		}
 
+		// bail if settings object is missing.
+		if( ! class_exists( '\easySettingsForWordPress\Settings' ) ) {
+			return;
+		}
+
 		// get the settings object.
-		$settings_obj = Settings::get_instance();
+		$settings_obj = Settings::get_instance()->get_settings_obj();
 
 		// get the settings page.
 		$settings_page = $settings_obj->get_page( \ExternalFilesInMediaLibrary\Plugin\Settings::get_instance()->get_menu_slug() );
@@ -186,20 +191,20 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$setting->set_type( 'string' );
 			$setting->set_read_callback( array( $this, 'decrypt_value' ) );
 			$setting->set_save_callback( array( $this, 'encrypt_value' ) );
-			$field = new Textarea();
+			$field = new Textarea( $settings_obj );
 			$field->set_title( __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) );
 			/* translators: %1$s will be replaced by a URL. */
 			$field->set_description( sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() ) );
 			$field->set_sanitize_callback( array( $this, 'validate_json' ) );
 			$setting->set_field( $field );
 
-			// add setting for bucket.
+			// add setting for the bucket.
 			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_bucket' );
 			$setting->set_section( $section );
 			$setting->set_autoload( false );
 			$setting->set_type( 'string' );
 			$setting->set_default( '' );
-			$field = new Text();
+			$field = new Text( $settings_obj );
 			$field->set_title( __( 'Bucket', 'external-files-from-google-cloud-storage' ) );
 			$field->set_description( __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-from-google-cloud-storage' ) );
 			$setting->set_field( $field );
@@ -208,7 +213,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_goto' );
 			$setting->set_section( $section );
 			$setting->prevent_export( true );
-			$field = new Button();
+			$field = new Button( $settings_obj );
 			$field->set_title( __( 'Files in storage', 'external-files-from-google-cloud-storage' ) );
 			$field->set_button_title( __( 'View and import files', 'external-files-from-google-cloud-storage' ) );
 			$field->set_button_url( Directory_Listing::get_instance()->get_view_directory_url( $this ) );
@@ -220,7 +225,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$setting->set_section( $section );
 			$setting->set_show_in_rest( false );
 			$setting->prevent_export( true );
-			$field = new TextInfo();
+			$field = new TextInfo( $settings_obj );
 			$field->set_title( __( 'Hint', 'external-files-from-google-cloud-storage' ) );
 			/* translators: %1$s will be replaced by a URL. */
 			$field->set_description( sprintf( __( 'Each user will find its settings in his own <a href="%1$s">user profile</a>.', 'external-files-from-google-cloud-storage' ), $this->get_config_url() ) );
@@ -461,7 +466,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 					continue;
 				}
 
-				// get directory-data for this file and add file in the given directories.
+				// get directory-data for this file and add the file in the given directories.
 				$parts = explode( '/', $file_data['name'] );
 
 				// collect the entry.
@@ -471,7 +476,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 
 				// if array contains more than 1 entry, this entry is in a directory.
 				if ( end( $parts ) ) {
-					// get content type of this file.
+					// get content type for this file.
 					$mime_type = wp_check_filetype( $file_data['name'] );
 
 					// bail if file type is not allowed.
@@ -505,14 +510,14 @@ class GoogleCloudStorage extends Service_Base implements Service {
 					$dir_path = '';
 
 					// loop through all parent folders, add the directory if it does not exist in the list
-					// and add the file to each of them.
+					// and add the file to each.
 					foreach ( $parts as $key => $dir ) {
 						// bail if dir is empty.
 						if ( empty( $dir ) ) {
 							continue;
 						}
 
-						// bail for last entry (which is a file).
+						// bail for last entry (this is a file).
 						if ( $key === $last_key ) {
 							// add the file to the last iterated directory.
 							$folders[ $last_dir ]['files'][] = $entry;
@@ -639,7 +644,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			return $result;
 		}
 
-		// get content type of this file.
+		// get content type for this file.
 		$mime_type = wp_check_filetype( $file_data['name'] );
 
 		// return whether this file type is allowed (false) or not (true).
@@ -706,7 +711,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	/**
 	 * Show option to connect to Google Cloud Storage on the user profile.
 	 *
-	 * @param WP_User $user The WP_User object for the actual user.
+	 * @param WP_User $user The "WP_User" object for the actual user.
 	 *
 	 * @return void
 	 */
