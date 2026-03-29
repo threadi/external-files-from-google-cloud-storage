@@ -144,7 +144,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		}
 
 		// bail if settings object is missing.
-		if( ! class_exists( '\easySettingsForWordPress\Settings' ) ) {
+		if ( ! class_exists( '\easySettingsForWordPress\Settings' ) ) {
 			return;
 		}
 
@@ -520,7 +520,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 						// bail for last entry (this is a file).
 						if ( $key === $last_key ) {
 							// add the file to the last iterated directory.
-							$folders[ $last_dir ]['files'][] = $entry;
+							$folders[ $last_dir ]['files'][] = $entry; // @phpstan-ignore offsetAssign.dimType
 							continue;
 						}
 
@@ -541,9 +541,9 @@ class GoogleCloudStorage extends Service_Base implements Service {
 						}
 
 						// add the directory if it does not exist atm in the main folder list.
-						if ( ! empty( $last_dir ) && ! isset( $folders[ $last_dir ]['dirs'][ $index ] ) ) {
+						if ( ! empty( $last_dir ) && ! isset( $folders[ $last_dir ]['dirs'][ $index ] ) ) { // @phpstan-ignore isset.offset
 							// add the directory to the list.
-							$folders[ $last_dir ]['dirs'][ $index ] = array(
+							$folders[ $last_dir ]['dirs'][ $index ] = array( // @phpstan-ignore offsetAssign.dimType
 								'title' => $dir,
 								'files' => array(),
 								'dirs'  => array(),
