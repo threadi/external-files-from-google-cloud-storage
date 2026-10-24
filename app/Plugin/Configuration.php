@@ -47,7 +47,7 @@ class Configuration extends Configuration_Base {
 	 */
 	public function get_dialog_hints(): array {
 		return array(
-			'<p>' . __( 'This will disable all other services except Google Cloud Storage.', 'external-files-in-media-library' ) . '<br>' . __( 'After that, you will only be able to see and use Google Cloud Storage for external sources.', 'external-files-from-google-cloud-storage' ) . '</p>',
+			'<p>' . __( 'This will disable all other services except Google Cloud Storage.', 'external-files-from-google-cloud-storage' ) . '<br>' . __( 'After that, you will only be able to see and use Google Cloud Storage for external sources.', 'external-files-from-google-cloud-storage' ) . '</p>',
 		);
 	}
 

@@ -10,6 +10,7 @@ namespace ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
 // prevent direct access.
 defined( 'ABSPATH' ) || exit;
 
+use Exception;
 use ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
 use ExternalFilesInMediaLibrary\ExternalFiles\Export_Base;
 use ExternalFilesInMediaLibrary\Plugin\Helper;
@@ -63,7 +64,7 @@ class Export extends Export_Base {
 	 */
 	public function export_file( int $attachment_id, string $target, array $credentials ): string|bool {
 		// get the fields.
-		$fields = $credentials['fields'];
+		$fields = isset( $credentials['fields'] ) && is_array( $credentials['fields'] ) ? $credentials['fields'] : array();
 
 		// get the main object.
 		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
@@ -76,8 +77,16 @@ class Export extends Export_Base {
 			return false;
 		}
 
-		// bail if bucket does not exist.
-		if ( ! $bucket->exists() ) {
+		// bail if bucket does not exist or could not be loaded.
+		try {
+			if ( ! $bucket->exists() ) {
+				return false;
+			}
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $target, 'error' );
+
+			// do nothing more.
 			return false;
 		}
 
@@ -115,18 +124,26 @@ class Export extends Export_Base {
 		}
 
 		// upload the file.
-		$object = $bucket->upload(
-			(string) $wp_filesystem_local->get_contents( $file_path ),
-			array(
-				'name' => basename( $file_path ),
-			)
-		);
+		try {
+			$object = $bucket->upload(
+				(string) $wp_filesystem_local->get_contents( $file_path ),
+				array(
+					'name' => basename( $file_path ),
+				)
+			);
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $target, 'error' );
+
+			// do nothing more.
+			return false;
+		}
 
 		// save the given name.
 		update_post_meta( $attachment_id, 'efml_google_cloud_storage', $object->name() );
 
 		// return the public URL.
-		return GoogleCloudStorage::get_instance()->get_public_url_for_file( $fields['bucket']['value'], $object->name() );
+		return GoogleCloudStorage::get_instance()->get_public_url_for_file( $bucket->name(), $object->name() );
 	}
 
 	/**
@@ -148,7 +165,7 @@ class Export extends Export_Base {
 		}
 
 		// get the bucket.
-		$bucket = $this->get_bucket_object( $credentials['fields'] );
+		$bucket = $this->get_bucket_object( isset( $credentials['fields'] ) && is_array( $credentials['fields'] ) ? $credentials['fields'] : array() );
 
 		// bail if bucket could not be loaded.
 		if ( ! $bucket instanceof Bucket ) {
@@ -158,16 +175,24 @@ class Export extends Export_Base {
 		// get the file object.
 		$object = $bucket->object( $name );
 
-		// bail if object does not exist.
-		if ( ! $object->exists() ) {
+		try {
+			// bail if object does not exist.
+			if ( ! $object->exists() ) {
+				return false;
+			}
+
+			// delete it.
+			$object->delete();
+
+			// return the check if object has been deleted.
+			return ! $object->exists();
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $url, 'error' );
+
+			// return false as the file could not be deleted.
 			return false;
 		}
-
-		// delete it.
-		$object->delete();
-
-		// return the check if object has been deleted.
-		return ! $object->exists();
 	}
 
 	/**
@@ -191,6 +216,6 @@ class Export extends Export_Base {
 		}
 
 		// get our bucket as object.
-		return $storage->bucket( $fields['bucket']['value'] );
+		return $storage->bucket( $google_cloud_storage_obj->get_bucket_name() );
 	}
 }

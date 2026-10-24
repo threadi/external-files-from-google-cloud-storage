@@ -18,6 +18,7 @@ use ExternalFilesInMediaLibrary\ExternalFiles\Results;
 use ExternalFilesInMediaLibrary\ExternalFiles\Results\Url_Result;
 use ExternalFilesInMediaLibrary\Plugin\Helper;
 use ExternalFilesInMediaLibrary\Plugin\Log;
+use Google\Cloud\Storage\Bucket;
 use Google\Cloud\Storage\StorageClient;
 
 /**
@@ -112,10 +113,10 @@ class Protocol extends Protocol_Base {
 		}
 
 		// get our bucket as object.
-		$bucket = $storage->bucket( $fields['bucket']['value'] );
+		$bucket = $storage->bucket( $google_cloud_storage_obj->get_bucket_name() );
 
-		// bail if bucket does not exist.
-		if ( ! $bucket->exists() ) {
+		// bail if bucket does not exist or could not be loaded.
+		if ( ! $this->bucket_exists( $bucket, $this->get_url() ) ) {
 			return array();
 		}
 
@@ -159,7 +160,7 @@ class Protocol extends Protocol_Base {
 		$results = array(
 			'title'         => basename( $file_data['name'] ),
 			'local'         => ! $public_access_allowed,
-			'url'           => $public_access_allowed ? GoogleCloudStorage::get_instance()->get_public_url_for_file( $google_cloud_storage_obj->get_bucket_name(), basename( $file_data['name'] ) ) : $this->get_url(),
+			'url'           => $public_access_allowed ? GoogleCloudStorage::get_instance()->get_public_url_for_file( $google_cloud_storage_obj->get_bucket_name(), $file_data['name'] ) : $this->get_url(),
 			'last-modified' => absint( strtotime( $file_data['updated'] ) ),
 		);
 
@@ -177,12 +178,12 @@ class Protocol extends Protocol_Base {
 			// write it to the tmp file.
 			$wp_filesystem->put_contents( $results['tmp-file'], $content );
 		} catch ( Exception $e ) {
-			Log::get_instance()->create( __( 'Error during request of Google Cloud Storage IAM binding data:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error', 1 );
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error', 1 );
 
 			// create the error entry.
 			$error_obj = new Url_Result();
 			/* translators: %1$s will be replaced by a URL. */
-			$error_obj->set_result_text( sprintf( __( 'Error during request of Google Cloud Storage IAM binding data. Check the <a href="%1$s" target="_blank">log</a> for detailed information.', 'external-files-from-google-cloud-storage' ), Helper::get_log_url( $this->get_url() ) ) );
+			$error_obj->set_result_text( sprintf( __( 'Error during request of file data from Google Cloud Storage. Check the <a href="%1$s" target="_blank">log</a> for detailed information.', 'external-files-from-google-cloud-storage' ), Helper::get_log_url( $this->get_url() ) ) );
 			$error_obj->set_url( $this->get_url() );
 			$error_obj->set_error( true );
 
@@ -256,8 +257,8 @@ class Protocol extends Protocol_Base {
 		// get our bucket as object.
 		$bucket = $storage->bucket( $google_cloud_storage_obj->get_bucket_name() );
 
-		// bail if bucket does not exist.
-		if ( ! $bucket->exists() ) {
+		// bail if bucket does not exist or could not be loaded.
+		if ( ! $this->bucket_exists( $bucket, $this->get_url() ) ) {
 			return array();
 		}
 
@@ -271,9 +272,25 @@ class Protocol extends Protocol_Base {
 		$files = array();
 
 		// get the file list from the bucket.
-		foreach ( $bucket->objects() as $file_obj ) {
+		try {
+			$objects = iterator_to_array( $bucket->objects(), false );
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error' );
+
+			// do nothing more.
+			return array();
+		}
+
+		// add each file to the list.
+		foreach ( $objects as $file_obj ) {
 			// get the file data.
 			$file_data = $file_obj->info();
+
+			// bail if this is a directory.
+			if ( str_ends_with( $file_data['name'], '/' ) ) {
+				continue;
+			}
 
 			// set the file URL.
 			$url = $main_url . $file_data['name'];
@@ -313,7 +330,15 @@ class Protocol extends Protocol_Base {
 			$entry['tmp-file'] = wp_tempnam();
 
 			// download file to this location.
-			$file_obj->downloadToFile( $entry['tmp-file'] );
+			try {
+				$file_obj->downloadToFile( $entry['tmp-file'] );
+			} catch ( Exception $e ) {
+				// log this event.
+				Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $url, 'error' );
+
+				// do not import this file.
+				continue;
+			}
 
 			// get WP Filesystem-handler.
 			$wp_filesystem = Helper::get_wp_filesystem();
@@ -331,6 +356,26 @@ class Protocol extends Protocol_Base {
 
 		// return the list of files.
 		return $files;
+	}
+
+	/**
+	 * Return whether the given bucket exists. Errors during the check are logged.
+	 *
+	 * @param Bucket $bucket The bucket.
+	 * @param string $url    The URL used for the log.
+	 *
+	 * @return bool
+	 */
+	private function bucket_exists( Bucket $bucket, string $url ): bool {
+		try {
+			return $bucket->exists();
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $url, 'error' );
+
+			// return false as the bucket could not be used.
+			return false;
+		}
 	}
 
 	/**
