@@ -21,8 +21,6 @@ use Exception;
 use ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage\Export;
 use ExternalFilesInMediaLibrary\ExternalFiles\Export_Base;
 use ExternalFilesInMediaLibrary\ExternalFiles\ImportDialog;
-use ExternalFilesInMediaLibrary\ExternalFiles\Results;
-use ExternalFilesInMediaLibrary\ExternalFiles\Results\Url_Result;
 use ExternalFilesInMediaLibrary\Plugin\Admin\Directory_Listing;
 use easyDirectoryListingForWordPress\Crypt;
 use ExternalFilesInMediaLibrary\Plugin\Helper;
@@ -32,7 +30,6 @@ use ExternalFilesInMediaLibrary\Services\Service;
 use ExternalFilesInMediaLibrary\Services\Service_Base;
 use Google\Cloud\Storage\Bucket;
 use Google\Cloud\Storage\StorageClient;
-use Error;
 use WP_Error;
 use WP_User;
 
@@ -122,9 +119,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 
 		// use our own hooks.
 		add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
-		add_filter( 'efml_service_googlecloudstorage_hide_file', array( $this, 'prevent_not_allowed_files' ), 10, 3 );
-		add_filter( 'efml_directory_listing', array( $this, 'cleanup_on_rest' ), 10, 3 );
-		add_action( 'efml_before_file_list', array( $this, 'cleanup_after_import' ) );
+		add_filter( 'efmlgcs_service_googlecloudstorage_hide_file', array( $this, 'prevent_not_allowed_files' ), 10, 3 );
 		add_filter( 'efml_directory_listing', array( $this, 'prepare_tree_building' ), 20, 3 );
 
 		// use hooks.
@@ -297,7 +292,16 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	private function get_authentication_json(): string {
 		// get from global setting, if this is enabled.
 		if ( $this->is_mode( 'global' ) ) {
-			return (string) get_option( 'eml_google_cloud_storage_json' );
+			// get the value.
+			$json = (string) get_option( 'eml_google_cloud_storage_json' );
+
+			// return the value, if it is already decrypted during reading (only if the setting is registered).
+			if ( false !== has_filter( 'option_eml_google_cloud_storage_json', array( $this, 'decrypt_value' ) ) ) {
+				return $json;
+			}
+
+			// return the decrypted value.
+			return $this->decrypt_value( $json );
 		}
 
 		// get user-specific setting, if this is enabled.
@@ -672,40 +676,47 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return StorageClient|false
 	 */
 	public function get_storage_object(): StorageClient|false {
-		// create tmp file for the credential JSON.
-		$credential_file_path = wp_tempnam();
+		// get the authentication JSON.
+		$authentication_json = $this->get_fields()['authentication_json']['value'] ?? '';
 
-		// get the file system object.
-		$wp_filesystem = Helper::get_wp_filesystem();
+		// get the JSON as array.
+		$key_file = is_string( $authentication_json ) ? json_decode( $authentication_json, true ) : false;
 
-		// get the authentification JSON.
-		$authentication_json = $this->get_fields()['authentication_json']['value'];
-
-		try {
-			// save the tmp-file.
-			$wp_filesystem->put_contents( $credential_file_path, $authentication_json );
-		} catch ( Error $e ) {
-			// create the error entry.
-			$error_obj = new Url_Result();
-			$error_obj->set_result_text( __( 'Error occurred during requesting the credential file for Google Cloud Storage.', 'external-files-from-google-cloud-storage' ) );
-			$error_obj->set_url( $this->get_url( '' ) );
-			$error_obj->set_error( true );
-
-			// add the error object to the list of errors.
-			Results::get_instance()->add( $error_obj );
-
-			// add log entry.
-			Log::get_instance()->create( __( 'The following error occurred during requesting the credential file for Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url( '' ), 'error' );
+		// bail if JSON is not valid.
+		if ( ! is_array( $key_file ) ) {
+			// log this event.
+			Log::get_instance()->create( __( '<strong>Given JSON is not valid!</strong> Please use the JSON given to you by Google Cloud.', 'external-files-from-google-cloud-storage' ), '', 'error' );
 
 			// do nothing more.
 			return false;
 		}
 
-		// set the tmp file for authentication.
-		putenv( 'GOOGLE_APPLICATION_CREDENTIALS=' . $credential_file_path );
+		// set the configuration for the client.
+		// the credentials are used directly, so they are not saved in a file and do not affect other applications.
+		$config = array(
+			'keyFile' => $key_file,
+		);
+
+		/**
+		 * Filter the configuration for the Google Cloud Storage client.
+		 *
+		 * E.g. to set a custom HTTP handler for the requests to Google Cloud Storage.
+		 *
+		 * @since 1.1.0 Available since 1.1.0.
+		 * @param array<string,mixed> $config The configuration.
+		 */
+		$config = apply_filters( 'efmlgcs_storage_client_config', $config );
 
 		// get the storage as object.
-		return new StorageClient( array() );
+		try {
+			return new StorageClient( $config );
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'The following error occurred during requesting the credential file for Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', '', 'error' );
+
+			// do nothing more.
+			return false;
+		}
 	}
 
 	/**
@@ -778,24 +789,8 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @noinspection PhpUnusedParameterInspection
 	 */
 	public function cleanup_on_rest( array $tree, string $directory, string $name ): array {
-		// bail if this is not our service.
-		if ( $name !== $this->get_name() ) {
-			return $tree;
-		}
-
-		// get the env var.
-		$path = getenv( 'GOOGLE_APPLICATION_CREDENTIALS' );
-
-		// bail if path is not set.
-		if ( empty( $path ) ) {
-			return $tree;
-		}
-
-		// delete the file.
-		$wp_filesystem = Helper::get_wp_filesystem();
-		$wp_filesystem->delete( $path );
-
-		// return tree.
+		// nothing to clean up, as the credentials are not saved in a temporary file anymore.
+		// hint: the file from the environment variable "GOOGLE_APPLICATION_CREDENTIALS" must not be deleted, as it could be used by other applications.
 		return $tree;
 	}
 
@@ -805,17 +800,8 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return void
 	 */
 	public function cleanup_after_import(): void {
-		// get the env var.
-		$path = getenv( 'GOOGLE_APPLICATION_CREDENTIALS' );
-
-		// bail if path is not set.
-		if ( empty( $path ) ) {
-			return;
-		}
-
-		// delete the file.
-		$wp_filesystem = Helper::get_wp_filesystem();
-		$wp_filesystem->delete( $path );
+		// nothing to clean up, as the credentials are not saved in a temporary file anymore.
+		// hint: the file from the environment variable "GOOGLE_APPLICATION_CREDENTIALS" must not be deleted, as it could be used by other applications.
 	}
 
 	/**
