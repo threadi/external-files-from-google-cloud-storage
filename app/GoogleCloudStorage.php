@@ -45,6 +45,16 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	protected string $name = 'google-cloud-storage';
 
 	/**
+	 * List of fields, which identify the target of this service.
+	 *
+	 * If the credentials are defined via constants incl. a bucket, saved external sources for other buckets
+	 * could not be used. Requires "External Files in Media Library" 5.7.0 or newer.
+	 *
+	 * @var array<int,string>
+	 */
+	protected array $constants_target_fields = array( 'bucket' );
+
+	/**
 	 * The public label.
 	 *
 	 * @var string
@@ -180,29 +190,35 @@ class GoogleCloudStorage extends Service_Base implements Service {
 
 		// add setting for insert-field.
 		if ( defined( 'EFML_ACTIVATION_RUNNING' ) || $this->is_mode( 'global' ) ) {
-			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_json' );
-			$setting->set_section( $section );
-			$setting->set_autoload( false );
-			$setting->set_type( 'string' );
-			$setting->set_read_callback( array( $this, 'decrypt_value' ) );
-			$setting->set_save_callback( array( $this, 'encrypt_value' ) );
-			$field = new Textarea( $settings_obj );
-			$field->set_title( __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) );
-			/* translators: %1$s will be replaced by a URL. */
-			$field->set_description( sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() ) );
-			$field->set_sanitize_callback( array( $this, 'validate_json' ) );
-			$setting->set_field( $field );
+			// show hint if the value is defined via constant, otherwise the setting.
+			if ( ! $this->show_constant_hint( $section, 'authentication_json', __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) ) ) {
+				$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_json' );
+				$setting->set_section( $section );
+				$setting->set_autoload( false );
+				$setting->set_type( 'string' );
+				$setting->set_read_callback( array( $this, 'decrypt_value' ) );
+				$setting->set_save_callback( array( $this, 'encrypt_value' ) );
+				$field = new Textarea( $settings_obj );
+				$field->set_title( __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) );
+				/* translators: %1$s will be replaced by a URL. */
+				$field->set_description( sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() ) );
+				$field->set_sanitize_callback( array( $this, 'validate_json' ) );
+				$setting->set_field( $field );
+			}
 
-			// add setting for the bucket.
-			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_bucket' );
-			$setting->set_section( $section );
-			$setting->set_autoload( false );
-			$setting->set_type( 'string' );
-			$setting->set_default( '' );
-			$field = new Text( $settings_obj );
-			$field->set_title( __( 'Bucket', 'external-files-from-google-cloud-storage' ) );
-			$field->set_description( __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-from-google-cloud-storage' ) );
-			$setting->set_field( $field );
+			// show hint if the value is defined via constant, otherwise the setting.
+			if ( ! $this->show_constant_hint( $section, 'bucket', __( 'Bucket', 'external-files-from-google-cloud-storage' ) ) ) {
+				// add setting for the bucket.
+				$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_bucket' );
+				$setting->set_section( $section );
+				$setting->set_autoload( false );
+				$setting->set_type( 'string' );
+				$setting->set_default( '' );
+				$field = new Text( $settings_obj );
+				$field->set_title( __( 'Bucket', 'external-files-from-google-cloud-storage' ) );
+				$field->set_description( __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-from-google-cloud-storage' ) );
+				$setting->set_field( $field );
+			}
 
 			// show button to go to the files.
 			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_goto' );
@@ -290,6 +306,12 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return string
 	 */
 	private function get_authentication_json(): string {
+		// use the value of the constant, if set.
+		$constant_value = $this->get_constant_value_if_supported( 'authentication_json' );
+		if ( ! is_null( $constant_value ) ) {
+			return $constant_value;
+		}
+
 		// get from global setting, if this is enabled.
 		if ( $this->is_mode( 'global' ) ) {
 			// get the value.
@@ -328,9 +350,18 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return string
 	 */
 	public function get_bucket_name(): string {
-		// use the setting from fields, if set.
-		if ( ! empty( $this->fields['bucket']['value'] ) ) {
-			return $this->fields['bucket']['value'];
+		// use the setting from fields incl. the values of constants, if set.
+		if ( ! empty( $this->fields ) ) {
+			$fields = $this->get_fields();
+			if ( ! empty( $fields['bucket']['value'] ) && is_string( $fields['bucket']['value'] ) ) {
+				return $fields['bucket']['value'];
+			}
+		}
+
+		// use the value of the constant, if set.
+		$constant_value = $this->get_constant_value_if_supported( 'bucket' );
+		if ( ! is_null( $constant_value ) ) {
+			return $constant_value;
 		}
 
 		// get from global setting, if this is enabled.
@@ -354,6 +385,55 @@ class GoogleCloudStorage extends Service_Base implements Service {
 
 		// return nothing.
 		return '';
+	}
+
+	/**
+	 * Return the list of required fields, which must all be defined via constants to use any constant.
+	 *
+	 * Only the authentication JSON is required, as the bucket is optional to connect to different buckets.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_required_fields_for_constants(): array {
+		return array_values( array_diff( parent::get_required_fields_for_constants(), array( 'bucket' ) ) );
+	}
+
+	/**
+	 * Return the value of a field defined via constant, if the main plugin supports this.
+	 *
+	 * Requires "External Files in Media Library" 5.7.0 or newer.
+	 *
+	 * @param string $field_name The name of the field.
+	 *
+	 * @return string|null
+	 */
+	private function get_constant_value_if_supported( string $field_name ): ?string {
+		// bail if the main plugin does not support constants.
+		if ( ! method_exists( $this, 'get_constant_value' ) ) { // @phpstan-ignore function.alreadyNarrowedType
+			return null;
+		}
+
+		// return the value.
+		return $this->get_constant_value( $field_name );
+	}
+
+	/**
+	 * Show a non-editable hint instead of a setting, if the value of the given field is defined via constant.
+	 *
+	 * @param Section $section    The section for the setting.
+	 * @param string  $field_name The name of the field.
+	 * @param string  $title      The title of the setting.
+	 *
+	 * @return bool True if the hint has been added, false if the setting should be added.
+	 */
+	protected function show_constant_hint( Section $section, string $field_name, string $title ): bool {
+		// bail if the main plugin does not support this (requires "External Files in Media Library" 5.7.0 or newer).
+		if ( ! method_exists( $this, 'add_constant_hint_setting' ) ) { // @phpstan-ignore function.alreadyNarrowedType
+			return false;
+		}
+
+		// add the hint, if the value is defined via constant.
+		return $this->add_constant_hint_setting( $section, $field_name, $title );
 	}
 
 	/**
