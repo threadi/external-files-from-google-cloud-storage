@@ -128,7 +128,7 @@ class Export extends Export_Base {
 			$object = $bucket->upload(
 				(string) $wp_filesystem_local->get_contents( $file_path ),
 				array(
-					'name' => basename( $file_path ),
+					'name' => $this->get_folder_from_target( $target, $credentials ) . basename( $file_path ),
 				)
 			);
 		} catch ( Exception $e ) {
@@ -193,6 +193,49 @@ class Export extends Export_Base {
 			// return false as the file could not be deleted.
 			return false;
 		}
+	}
+
+	/**
+	 * Return whether this service supports folders for exported files.
+	 *
+	 * Google Cloud Storage uses the folders as part of the name of the file, so no folders must be created.
+	 *
+	 * @return bool
+	 */
+	public function supports_folders(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the folder of the given target below the directory of the external source, with trailing slash.
+	 *
+	 * Returns an empty string if the target is located directly in the directory of the external source
+	 * or not located in it at all.
+	 *
+	 * @param string              $target The target path of the file.
+	 * @param array<string,mixed> $credentials The credentials of the external source.
+	 *
+	 * @return string
+	 */
+	private function get_folder_from_target( string $target, array $credentials ): string {
+		// get the directory from the credentials.
+		$directory = isset( $credentials['directory'] ) && is_string( $credentials['directory'] ) ? trailingslashit( $credentials['directory'] ) : '';
+
+		// bail if no directory is set or the target is not located in it.
+		if ( in_array( $directory, array( '', '/' ), true ) || ! str_starts_with( $target, $directory ) ) {
+			return '';
+		}
+
+		// get the folder of the target below the directory.
+		$folder = dirname( substr( $target, strlen( $directory ) ) );
+
+		// bail if the target is located directly in the directory or contains relative folders.
+		if ( '.' === $folder || '' === $folder || in_array( '..', explode( '/', $folder ), true ) ) {
+			return '';
+		}
+
+		// return the folder.
+		return trailingslashit( $folder );
 	}
 
 	/**

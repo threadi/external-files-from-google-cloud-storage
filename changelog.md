@@ -7,6 +7,7 @@
 - Added possibility to define the authentication JSON and the bucket via constants, e.g. in wp-config.php (requires External Files in Media Library 5.7.0)
 - If the bucket is defined via constant, saved external sources for other buckets are not usable
 - Added documentation for the constants in docs/constants.md
+- Added support for the folder structure of exported files (requires External Files in Media Library 5.7.0)
 
 ## [1.1.0] - 24.10.2026
 

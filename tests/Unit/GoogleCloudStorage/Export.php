@@ -191,4 +191,42 @@ class Export extends externalFilesFromGoogleCloudStorageTests {
 		// test 4: without credentials.
 		$this->assertFalse( $this->get_export()->delete_exported_file( $url, array(), $attachment_id ) );
 	}
+
+	/**
+	 * Test the export of a file into a folder below the directory of the external source.
+	 *
+	 * @return void
+	 */
+	public function test_export_file_into_folder(): void {
+		$this->do_login();
+		$attachment_id = $this->create_local_attachment();
+		$file_name     = basename( (string) get_attached_file( $attachment_id, true ) );
+		$this->add_bucket();
+		$this->add_iam_policy( true );
+		$this->add_google_response( 'POST', $this->upload_url, 200, $this->get_object_data( '2026/11/' . $file_name ), array( 'uploadType' => 'multipart' ) );
+		$this->assertTrue( $this->get_export()->supports_folders() );
+
+		$credentials              = $this->get_credentials();
+		$credentials['directory'] = $this->target;
+		$url                      = $this->get_export()->export_file( $attachment_id, $this->target . '2026/11/' . $file_name, $credentials );
+
+		$this->assertEquals( 'https://storage.googleapis.com/my-bucket/2026/11/' . $file_name, $url );
+		$this->assertEquals( '2026/11/' . $file_name, get_post_meta( $attachment_id, 'efml_google_cloud_storage', true ) );
+
+		// the name of the uploaded object contains the folder.
+		$this->assertStringContainsString( '"name":"2026\\/11\\/' . $file_name . '"', $this->get_google_requests()[2]['body'] );
+	}
+
+	/**
+	 * Test if relative folders in the target are never used for the name.
+	 *
+	 * @return void
+	 */
+	public function test_get_folder_from_target(): void {
+		$credentials = array( 'directory' => $this->target );
+		$this->assertEquals( '2026/11/', $this->call_method( $this->get_export(), 'get_folder_from_target', array( $this->target . '2026/11/file.jpg', $credentials ) ) );
+		$this->assertEquals( '', $this->call_method( $this->get_export(), 'get_folder_from_target', array( $this->target . 'file.jpg', $credentials ) ) );
+		$this->assertEquals( '', $this->call_method( $this->get_export(), 'get_folder_from_target', array( $this->target . '../2026/file.jpg', $credentials ) ) );
+		$this->assertEquals( '', $this->call_method( $this->get_export(), 'get_folder_from_target', array( $this->target . '2026/file.jpg', array() ) ) );
+	}
 }
