@@ -314,4 +314,36 @@ class Export extends externalFilesFromGoogleCloudStorageTests {
 		$this->assertFalse( $result );
 		$this->assertEquals( 'error', $this->get_log_entries( $this->target )[0]['state'] );
 	}
+
+	/**
+	 * Test the options for the upload: the content type of the attachment and further metadata via hook.
+	 *
+	 * @return void
+	 */
+	public function test_export_file_with_upload_options(): void {
+		$this->do_login();
+		$attachment_id = $this->create_local_attachment();
+		$file_name     = basename( (string) get_attached_file( $attachment_id, true ) );
+		$this->add_bucket();
+		$this->add_iam_policy( true );
+		$this->add_google_response( 'POST', $this->upload_url, 200, $this->get_object_data( $file_name ), array( 'uploadType' => 'multipart' ) );
+
+		$callback = static function ( array $options, int $id ) use ( $attachment_id ): array {
+			if ( $id === $attachment_id ) {
+				$options['metadata']['cacheControl'] = 'public, max-age=31536000';
+			}
+			return $options;
+		};
+		add_filter( 'efmlgcs_upload_options', $callback, 10, 2 );
+		$url = $this->get_export()->export_file( $attachment_id, $this->target, $this->get_credentials() );
+		remove_filter( 'efmlgcs_upload_options', $callback );
+
+		$this->assertEquals( 'https://storage.googleapis.com/my-bucket/' . $file_name, $url );
+
+		// the metadata is part of the multipart upload.
+		$upload = $this->get_google_requests()[2];
+		$this->assertStringContainsString( '"contentType":"image\/jpeg"', $upload['body'] );
+		$this->assertStringContainsString( '"cacheControl":"public, max-age=31536000"', $upload['body'] );
+		$this->assertStringContainsString( '"name":"' . $file_name . '"', $upload['body'] );
+	}
 }

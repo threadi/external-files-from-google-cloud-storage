@@ -139,9 +139,7 @@ class Export extends Export_Base {
 		try {
 			$object = $bucket->upload(
 				$handle,
-				array(
-					'name' => $this->get_folder_from_target( $target, $credentials ) . basename( $file_path ),
-				)
+				$this->get_upload_options( $attachment_id, $file_path, $this->get_folder_from_target( $target, $credentials ) . basename( $file_path ) )
 			);
 		} catch ( Exception $e ) {
 			// log this event.
@@ -161,6 +159,51 @@ class Export extends Export_Base {
 
 		// return the public URL.
 		return GoogleCloudStorage::get_instance()->get_public_url_for_file( $bucket->name(), $object->name() );
+	}
+
+	/**
+	 * Return the options for the upload of the given file to Google Cloud Storage.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param int    $attachment_id The attachment ID.
+	 * @param string $file_path     The absolute path to the local file.
+	 * @param string $name          The name of the object in the bucket.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function get_upload_options( int $attachment_id, string $file_path, string $name ): array {
+		// get the content type from the attachment.
+		$content_type = (string) get_post_mime_type( $attachment_id );
+
+		// use the file extension as fallback.
+		if ( empty( $content_type ) ) {
+			$file_type    = wp_check_filetype( basename( $file_path ) );
+			$content_type = is_string( $file_type['type'] ) ? $file_type['type'] : '';
+		}
+
+		// set the options.
+		$options = array(
+			'name' => $name,
+		);
+		if ( ! empty( $content_type ) ) {
+			$options['metadata'] = array(
+				'contentType' => $content_type,
+			);
+		}
+
+		/**
+		 * Filter the options for the upload of a file to Google Cloud Storage.
+		 *
+		 * Could be used to add metadata like "cacheControl" or "contentDisposition" in "metadata",
+		 * e.g. $options['metadata']['cacheControl'] = 'public, max-age=31536000'.
+		 *
+		 * @since 1.2.0 Available since 1.2.0.
+		 * @param array<string,mixed> $options The options for the upload (see Bucket::upload() of the SDK).
+		 * @param int $attachment_id The attachment ID.
+		 * @param string $name The name of the object in the bucket.
+		 */
+		return apply_filters( 'efmlgcs_upload_options', $options, $attachment_id, $name );
 	}
 
 	/**

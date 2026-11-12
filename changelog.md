@@ -11,6 +11,8 @@
 - Added support for private files (requires External Files in Media Library 6.0.0): files could be exported into buckets, which are not public, and are delivered via signed URLs or the cache of the proxy
 - Added hook "efmlgcs_signed_url" to change the signed URLs
 - Added link to the Google Cloud Console in the info box of each file (requires External Files in Media Library 6.0.0)
+- Added hook "efmlgcs_upload_options" to change the options for the upload of exported files, e.g. to add "cacheControl" or "contentDisposition"
+- Exported files get the content type of their attachment
 
 ### Changed
 

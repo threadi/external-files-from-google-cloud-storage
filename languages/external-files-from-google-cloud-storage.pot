@@ -208,7 +208,7 @@ msgstr ""
 msgid "Given file could not be opened for the export:"
 msgstr ""
 
-#: app/GoogleCloudStorage/Export.php:148 app/GoogleCloudStorage/Export.php:208 app/GoogleCloudStorage/Protocol.php:136 app/GoogleCloudStorage/Protocol.php:187 app/GoogleCloudStorage/Protocol.php:498
+#: app/GoogleCloudStorage/Export.php:146 app/GoogleCloudStorage/Export.php:251 app/GoogleCloudStorage/Protocol.php:136 app/GoogleCloudStorage/Protocol.php:187 app/GoogleCloudStorage/Protocol.php:498
 msgid "Error during request of file data from Google Cloud Storage:"
 msgstr ""
 
