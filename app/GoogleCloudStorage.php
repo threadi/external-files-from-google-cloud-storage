@@ -120,7 +120,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		add_action( 'init', array( $this, 'init_google_cloud_storage' ), 30 );
 
 		// bail if user has no capability for this service.
-		if ( ! defined( 'EFML_SYNC_RUNNING' ) && ! current_user_can( 'efml_cap_' . $this->get_name() ) ) {
+		if ( ! $this->is_import_allowed() ) {
 			return;
 		}
 

@@ -88,14 +88,7 @@ class Protocol extends Protocol_Base {
 		$google_cloud_storage_obj->set_fields( $fields );
 
 		// get the name from the URL.
-		$file_name = str_replace(
-			array(
-				$google_cloud_storage_obj->get_url_mark() . $google_cloud_storage_obj->get_bucket_name() . '/',
-				$google_cloud_storage_obj->get_directory(),
-			),
-			'',
-			$this->get_url()
-		);
+		$file_name = $this->get_file_name( $google_cloud_storage_obj );
 
 		// if file name is empty, we get a list of all files.
 		if ( empty( $file_name ) ) {
@@ -396,6 +389,134 @@ class Protocol extends Protocol_Base {
 	 */
 	public function get_title(): string {
 		return 'Google Cloud Storage';
+	}
+
+	/**
+	 * Return the name of the file in the bucket from the URL of this object, empty for the bucket itself.
+	 *
+	 * @param GoogleCloudStorage $google_cloud_storage_obj The Google Cloud Storage object with the fields of this object.
+	 *
+	 * @return string
+	 */
+	private function get_file_name( GoogleCloudStorage $google_cloud_storage_obj ): string {
+		return str_replace(
+			array(
+				$google_cloud_storage_obj->get_url_mark() . $google_cloud_storage_obj->get_bucket_name() . '/',
+				$google_cloud_storage_obj->get_directory(),
+			),
+			'',
+			$this->get_url()
+		);
+	}
+
+	/**
+	 * Return whether this protocol could list the files of a directory page by page.
+	 *
+	 * @return bool
+	 */
+	public function supports_file_list(): bool {
+		return true;
+	}
+
+	/**
+	 * Return whether the URL of this object is the bucket, whose files are imported.
+	 *
+	 * @return bool
+	 */
+	public function is_directory(): bool {
+		// get the main object.
+		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
+		$google_cloud_storage_obj->set_fields( $this->get_fields() );
+
+		// return whether the URL does not contain a file name.
+		return '' === $this->get_file_name( $google_cloud_storage_obj );
+	}
+
+	/**
+	 * Return one page of the files in the bucket.
+	 *
+	 * @param string $cursor The cursor for the requested page.
+	 *
+	 * @return array{files: array<int,array{url: string, media-url?: string, filesize?: int, last-modified?: int}>, cursor: string}|false
+	 */
+	public function get_file_list( string $cursor ): array|false {
+		// get the main object.
+		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
+		$google_cloud_storage_obj->set_fields( $this->get_fields() );
+
+		// get storage object.
+		$storage = $google_cloud_storage_obj->get_storage_object();
+
+		// bail if storage could not be loaded.
+		if ( ! $storage instanceof StorageClient ) {
+			return false;
+		}
+
+		// get our bucket as object.
+		$bucket = $storage->bucket( $google_cloud_storage_obj->get_bucket_name() );
+
+		// bail if bucket does not exist or could not be loaded (checked only for the first page).
+		if ( '' === $cursor && ! $this->bucket_exists( $bucket, $this->get_url() ) ) {
+			return false;
+		}
+
+		// prepare the main pseudo-URL for each file.
+		$main_url = str_replace( $google_cloud_storage_obj->get_directory() . '/', '', $this->get_url() );
+
+		// set the options for the page.
+		$options = array( 'maxResults' => $this->get_file_list_page_size() );
+		if ( '' !== $cursor ) {
+			$options['pageToken'] = $cursor;
+		}
+
+		// get the page from the bucket.
+		try {
+			$iterator = $bucket->objects( $options );
+			$objects  = $iterator->iterateByPage()->current();
+			$token    = (string) $iterator->nextResultToken();
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $this->get_url(), 'error' );
+			return false;
+		}
+
+		// get the public state of the bucket: the import saves files in public buckets with their public URL.
+		$is_public = $google_cloud_storage_obj->is_bucket_public( $bucket );
+
+		// collect the files.
+		$files = array();
+		foreach ( is_array( $objects ) ? $objects : array() as $file_obj ) {
+			// get the file data (already loaded with the list).
+			$file_data = $file_obj->info();
+
+			// bail if this is a directory.
+			if ( str_ends_with( $file_data['name'], '/' ) ) {
+				continue;
+			}
+
+			$false = false;
+			/** This filter is documented in app/GoogleCloudStorage/Protocol.php */
+			if ( apply_filters( 'efmlgcs_service_googlecloudstorage_hide_file', $false, $file_data, $this->get_url() ) ) {
+				continue;
+			}
+
+			// add the file.
+			$entry = array(
+				'url'           => $main_url . $file_data['name'],
+				'filesize'      => absint( $file_data['size'] ?? 0 ),
+				'last-modified' => absint( strtotime( $file_data['updated'] ?? '' ) ),
+			);
+			if ( $is_public ) {
+				$entry['media-url'] = $google_cloud_storage_obj->get_public_url_for_file( $google_cloud_storage_obj->get_bucket_name(), $file_data['name'] );
+			}
+			$files[] = $entry;
+		}
+
+		// return the page with the token for the next page.
+		return array(
+			'files'  => $files,
+			'cursor' => $token !== $cursor ? $token : '',
+		);
 	}
 
 	/**

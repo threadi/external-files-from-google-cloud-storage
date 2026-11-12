@@ -236,6 +236,66 @@ class Protocol extends externalFilesFromGoogleCloudStorageTests {
 	}
 
 	/**
+	 * Test the file list of the bucket page by page: directories are not listed, the token is used for the next page.
+	 *
+	 * @return void
+	 */
+	public function test_get_file_list(): void {
+		$this->connect();
+		$this->add_bucket();
+		$this->add_iam_policy( true );
+		$protocol = $this->get_protocol( $this->directory );
+		$this->assertTrue( $protocol->supports_file_list() );
+		$this->assertTrue( $protocol->is_directory() );
+		$this->assertFalse( $this->get_protocol( $this->directory . 'example.jpg' )->is_directory() );
+
+		// first page with the token for the next page.
+		$this->add_google_response(
+			'GET',
+			'/o',
+			200,
+			array(
+				'items'         => array( $this->get_object_data( 'example.jpg', 'content' ), $this->get_object_data( 'folder/', '' ) ),
+				'nextPageToken' => 'page-2',
+			),
+			array( 'maxResults' => '500' )
+		);
+		$page = $protocol->get_file_list( '' );
+		$this->assertIsArray( $page );
+		$this->assertEquals( 'page-2', $page['cursor'] );
+		$this->assertCount( 1, $page['files'] );
+		$this->assertEquals( $this->directory . 'example.jpg', $page['files'][0]['url'] );
+		$this->assertEquals( 7, $page['files'][0]['filesize'] );
+		$this->assertEquals( strtotime( '2024-01-02T03:04:05.000Z' ), $page['files'][0]['last-modified'] );
+
+		// the import saves files of public buckets with their public URL.
+		$this->assertEquals( 'https://storage.googleapis.com/my-bucket/example.jpg', $page['files'][0]['media-url'] );
+
+		// last page.
+		$this->add_google_response( 'GET', '/o', 200, array( 'items' => array( $this->get_object_data( 'folder/photo.jpg', 'content' ) ) ), array( 'pageToken' => 'page-2' ) );
+		$page = $protocol->get_file_list( 'page-2' );
+		$this->assertIsArray( $page );
+		$this->assertEquals( '', $page['cursor'] );
+		$this->assertEquals( $this->directory . 'folder/photo.jpg', $page['files'][0]['url'] );
+	}
+
+	/**
+	 * Test the file list, if the bucket could not be loaded.
+	 *
+	 * @return void
+	 */
+	public function test_get_file_list_with_error(): void {
+		$this->connect();
+		$this->add_bucket( 403 );
+		$this->assertFalse( $this->get_protocol( $this->directory )->get_file_list( '' ) );
+
+		// error during a later page.
+		$this->add_iam_policy( false );
+		$this->add_google_response( 'GET', '/o', 403, $this->get_error_body( 403 ), array( 'pageToken' => 'page-2' ) );
+		$this->assertFalse( $this->get_protocol( $this->directory )->get_file_list( 'page-2' ) );
+	}
+
+	/**
 	 * Test the signed URL for a private file.
 	 *
 	 * @return void

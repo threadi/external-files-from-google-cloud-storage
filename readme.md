@@ -106,6 +106,18 @@ The tests do not connect to Google Cloud: all requests to Google Cloud Storage a
 
 `composer test-multisite`
 
+### Integration tests
+
+Besides the unit tests, there are integration tests against an emulator of the JSON API of Google Cloud Storage in _tests/Integration/_. They are skipped unless the endpoint of the emulator is set:
+
+```bash
+python3 -m pip install gcp-storage-emulator
+python3 -m gcp_storage_emulator start --host=127.0.0.1 --port=9023 --in-memory &
+EFMLGCS_INTEGRATION_ENDPOINT=http://127.0.0.1:9023 composer test-integration
+```
+
+The GitHub workflow "Integration tests" runs them automatically for each pull request.
+
 ## Check with the plugin "Plugin Check"
 
 `wp plugin check --error-severity=7 --warning-severity=6 --include-low-severity-errors --categories=plugin_repo --format=json --slug=external-files-in-media-library .`

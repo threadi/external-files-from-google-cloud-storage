@@ -14,6 +14,9 @@
 - Added hook "efmlgcs_upload_options" to change the options for the upload of exported files, e.g. to add "cacheControl" or "contentDisposition"
 - Exported files get the content type of their attachment
 - Added support for the connection test in the directory listing (requires External Files in Media Library 6.0.0)
+- Added integration tests against an emulator of Google Cloud Storage and a GitHub workflow for them
+- Buckets are imported file by file via the import of External Files in Media Library 6.0.0: also buckets with tens of thousands of files, in the background if necessary
+- Added integration test for the import of a bucket with 1,100 files
 
 ### Changed
 
@@ -25,6 +28,7 @@
 - Fixed high memory usage during the export of large files, they are now uploaded as stream (and as resumable upload for files with more than 5 MB)
 - Fixed high memory usage during the import of large files, they are now saved directly into a local file
 
+- Fixed imports from Google Cloud Storage in scheduled tasks without logged-in user (e.g. via the queue or WP Cron)
 ## [1.1.0] - 24.10.2026
 
 ### Added
