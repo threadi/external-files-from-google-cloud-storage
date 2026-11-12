@@ -90,8 +90,8 @@ class Export extends Export_Base {
 			return false;
 		}
 
-		// bail if bucket is not public.
-		if ( ! $google_cloud_storage_obj->is_bucket_public( $bucket ) ) {
+		// bail if bucket is not public (not necessary for private files).
+		if ( empty( $credentials['private'] ) && ! $google_cloud_storage_obj->is_bucket_public( $bucket ) ) {
 			// log this event.
 			Log::get_instance()->create( __( 'Bucket seems not to be public. File will not be exported for your Google Cloud Storage.', 'external-files-from-google-cloud-storage' ), $target, 'error' );
 
@@ -123,10 +123,22 @@ class Export extends Export_Base {
 			return false;
 		}
 
-		// upload the file.
+		// open the file, so it is uploaded as stream and not loaded completely into memory.
+		$handle = fopen( $file_path, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		// bail if the file could not be opened.
+		if ( false === $handle ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Given file could not be opened for the export:', 'external-files-from-google-cloud-storage' ) . ' <code>' . wp_json_encode( $file_path ) . '</code>', $target, 'error' );
+
+			// do nothing more.
+			return false;
+		}
+
+		// upload the file (files larger than 5 MB are uploaded as resumable upload by the SDK).
 		try {
 			$object = $bucket->upload(
-				(string) $wp_filesystem_local->get_contents( $file_path ),
+				$handle,
 				array(
 					'name' => $this->get_folder_from_target( $target, $credentials ) . basename( $file_path ),
 				)
@@ -137,6 +149,11 @@ class Export extends Export_Base {
 
 			// do nothing more.
 			return false;
+		} finally {
+			// close the file, if the SDK has not closed it already.
+			if ( is_resource( $handle ) ) {
+				fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			}
 		}
 
 		// save the given name.
@@ -239,9 +256,23 @@ class Export extends Export_Base {
 	}
 
 	/**
-	 * Return the bucket object by given field settings.
+	 * Return whether this service could save exported files privately.
 	 *
-	 * @param array<string,mixed> $fields List of fields.
+	 * Private files are delivered via the proxy of External Files in Media Library, from its cache or via a
+	 * redirect to a signed URL.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return bool
+	 */
+	public function supports_private_files(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the bucket object for the given fields.
+	 *
+	 * @param array<string,mixed> $fields The fields.
 	 *
 	 * @return Bucket|false
 	 */

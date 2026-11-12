@@ -234,4 +234,57 @@ class Protocol extends externalFilesFromGoogleCloudStorageTests {
 		$this->assertEquals( array(), $this->get_protocol( $this->directory )->get_url_infos() );
 		$this->assertStringContainsString( 'could not be loaded', $this->get_log_entries( $this->directory )[0]['log'] );
 	}
+
+	/**
+	 * Test the signed URL for a private file.
+	 *
+	 * @return void
+	 */
+	public function test_get_signed_url(): void {
+		$url      = 'https://storage.googleapis.com/my-bucket/folder/example.jpg';
+		$protocol = $this->get_protocol( $url );
+		$start    = 1767225600;
+		$expires  = $start + 7200;
+
+		// get the signed URL.
+		$signed_url = $protocol->get_signed_url( $url, $start, $expires );
+		$this->assertStringStartsWith( 'https://storage.googleapis.com/my-bucket/folder/example.jpg?', $signed_url );
+		$this->assertStringContainsString( 'X-Goog-Signature=', $signed_url );
+		$this->assertStringContainsString( 'X-Goog-Expires=7200', $signed_url );
+		$this->assertStringContainsString( 'X-Goog-Date=20260101T000000Z', $signed_url );
+
+		// the same time range results in the same URL.
+		$this->assertEquals( $signed_url, $protocol->get_signed_url( $url, $start, $expires ) );
+
+		// invalid values.
+		$this->assertEquals( '', $protocol->get_signed_url( '', $start, $expires ) );
+		$this->assertEquals( '', $protocol->get_signed_url( $url, $expires, $start ) );
+
+		// a validity of more than 7 days is not possible.
+		$this->assertEquals( '', $protocol->get_signed_url( $url, $start, $start + 8 * DAY_IN_SECONDS ) );
+	}
+
+	/**
+	 * Test that a temporary file of an exported public file is loaded via HTTP (before, no file was returned).
+	 *
+	 * @return void
+	 */
+	public function test_get_temp_file_of_public_file(): void {
+		$url = 'https://storage.googleapis.com/my-bucket/example.jpg';
+		$this->add_http_response( $url, 200, array( 'content-type' => 'image/jpeg' ), $this->get_example_content() );
+
+		// get the temporary file.
+		$tmp_file = $this->get_protocol( $url )->get_temp_file( $url, \ExternalFilesInMediaLibrary\Plugin\Helper::get_wp_filesystem() );
+		$this->assertIsString( $tmp_file );
+		wp_delete_file( $tmp_file );
+	}
+
+	/**
+	 * Test the URL of the platform.
+	 *
+	 * @return void
+	 */
+	public function test_get_platform_url(): void {
+		$this->assertEquals( 'https://console.cloud.google.com/storage/browser/', \ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage::get_instance()->get_platform_url() );
+	}
 }

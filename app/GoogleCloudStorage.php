@@ -48,7 +48,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * List of fields, which identify the target of this service.
 	 *
 	 * If the credentials are defined via constants incl. a bucket, saved external sources for other buckets
-	 * could not be used. Requires "External Files in Media Library" 5.7.0 or newer.
+	 * could not be used. Requires "External Files in Media Library" 6.0.0 or newer.
 	 *
 	 * @var array<int,string>
 	 */
@@ -401,7 +401,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	/**
 	 * Return the value of a field defined via constant, if the main plugin supports this.
 	 *
-	 * Requires "External Files in Media Library" 5.7.0 or newer.
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
 	 *
 	 * @param string $field_name The name of the field.
 	 *
@@ -427,7 +427,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return bool True if the hint has been added, false if the setting should be added.
 	 */
 	protected function show_constant_hint( Section $section, string $field_name, string $title ): bool {
-		// bail if the main plugin does not support this (requires "External Files in Media Library" 5.7.0 or newer).
+		// bail if the main plugin does not support this (requires "External Files in Media Library" 6.0.0 or newer).
 		if ( ! method_exists( $this, 'add_constant_hint_setting' ) ) { // @phpstan-ignore function.alreadyNarrowedType
 			return false;
 		}
@@ -679,6 +679,17 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	}
 
 	/**
+	 * Return the URL of the web interface of Google Cloud Storage (the Google Cloud Console).
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return string
+	 */
+	public function get_platform_url(): string {
+		return 'https://console.cloud.google.com/storage/browser/';
+	}
+
+	/**
 	 * Return global actions.
 	 *
 	 * @return array<int,array<string,string>>
@@ -688,7 +699,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			parent::get_global_actions(),
 			array(
 				array(
-					'action' => 'location.href="https://console.cloud.google.com/storage/browser/";',
+					'action' => 'location.href="' . esc_url( $this->get_platform_url() ) . '";',
 					'label'  => __( 'Go to your bucket', 'external-files-from-google-cloud-storage' ),
 				),
 				array(

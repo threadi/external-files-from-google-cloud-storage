@@ -229,4 +229,89 @@ class Export extends externalFilesFromGoogleCloudStorageTests {
 		$this->assertEquals( '', $this->call_method( $this->get_export(), 'get_folder_from_target', array( $this->target . '../2026/file.jpg', $credentials ) ) );
 		$this->assertEquals( '', $this->call_method( $this->get_export(), 'get_folder_from_target', array( $this->target . '2026/file.jpg', array() ) ) );
 	}
+
+	/**
+	 * Test the export of a private file into a bucket, which is not public.
+	 *
+	 * @return void
+	 */
+	public function test_export_private_file_into_private_bucket(): void {
+		$this->do_login();
+		$attachment_id = $this->create_local_attachment();
+		$file_name     = basename( (string) get_attached_file( $attachment_id, true ) );
+		$this->add_bucket();
+		$this->add_iam_policy( false );
+		$this->add_google_response( 'POST', $this->upload_url, 200, $this->get_object_data( $file_name ), array( 'uploadType' => 'multipart' ) );
+
+		// the service supports private files.
+		$this->assertTrue( $this->get_export()->supports_private_files() );
+
+		// export the file as private file.
+		$credentials            = $this->get_credentials();
+		$credentials['private'] = true;
+		$url                    = $this->get_export()->export_file( $attachment_id, $this->target, $credentials );
+
+		$this->assertEquals( 'https://storage.googleapis.com/my-bucket/' . $file_name, $url );
+		$this->assertEquals( $file_name, get_post_meta( $attachment_id, 'efml_google_cloud_storage', true ) );
+	}
+
+	/**
+	 * Test the export of a large file, which is uploaded by the SDK as resumable upload from the file stream.
+	 *
+	 * @return void
+	 */
+	public function test_export_large_file(): void {
+		$this->do_login();
+
+		// create a file with more than 5 MB.
+		$file   = trailingslashit( get_temp_dir() ) . 'efmlgcs-large-export.pdf';
+		$handle = fopen( $file, 'wb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		fwrite( $handle, '%PDF-1.4' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		for ( $i = 0; $i < 6 * 1024; $i++ ) {
+			fwrite( $handle, random_bytes( 1024 ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		}
+		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		$attachment_id = (int) self::factory()->attachment->create_upload_object( $file );
+		wp_delete_file( $file );
+		$local_file = (string) get_attached_file( $attachment_id, true );
+		$file_name  = basename( $local_file );
+
+		// the SDK starts a resumable upload and sends the file to the returned location.
+		$this->add_bucket();
+		$this->add_iam_policy( true );
+		$this->add_google_response( 'POST', $this->upload_url, 200, '', array( 'uploadType' => 'resumable' ), array( 'Location' => $this->upload_url . '?uploadType=resumable&upload_id=efmlgcs-test' ) );
+		$this->add_google_response( 'PUT', $this->upload_url, 200, $this->get_object_data( $file_name ), array( 'upload_id' => 'efmlgcs-test' ) );
+
+		$url = $this->get_export()->export_file( $attachment_id, $this->target, $this->get_credentials() );
+
+		$this->assertEquals( 'https://storage.googleapis.com/my-bucket/' . $file_name, $url );
+
+		// the complete file has been sent.
+		$uploads = array_values( array_filter( $this->get_google_requests(), static fn( array $request ) => 'PUT' === $request['method'] ) );
+		$this->assertCount( 1, $uploads );
+		$this->assertEquals( md5_file( $local_file ), md5( $uploads[0]['body'] ) );
+	}
+
+	/**
+	 * Test the export of a file, which could not be opened.
+	 *
+	 * @return void
+	 */
+	public function test_export_file_not_readable(): void {
+		$attachment_id = $this->create_local_attachment();
+		$this->add_bucket();
+		$this->add_iam_policy( true );
+
+		// make the file a directory, which exists but could not be opened as file.
+		$file = (string) get_attached_file( $attachment_id, true );
+		wp_delete_file( $file );
+		mkdir( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		$result = @$this->get_export()->export_file( $attachment_id, $this->target, $this->get_credentials() ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+		rmdir( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		// the export fails without a fatal error.
+		$this->assertFalse( $result );
+		$this->assertEquals( 'error', $this->get_log_entries( $this->target )[0]['state'] );
+	}
 }

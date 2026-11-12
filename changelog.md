@@ -4,10 +4,23 @@
 
 ### Added
 
-- Added possibility to define the authentication JSON and the bucket via constants, e.g. in wp-config.php (requires External Files in Media Library 5.7.0)
+- Added possibility to define the authentication JSON and the bucket via constants, e.g. in wp-config.php (requires External Files in Media Library 6.0.0)
 - If the bucket is defined via constant, saved external sources for other buckets are not usable
 - Added documentation for the constants in docs/constants.md
-- Added support for the folder structure of exported files (requires External Files in Media Library 5.7.0)
+- Added support for the folder structure of exported files (requires External Files in Media Library 6.0.0)
+- Added support for private files (requires External Files in Media Library 6.0.0): files could be exported into buckets, which are not public, and are delivered via signed URLs or the cache of the proxy
+- Added hook "efmlgcs_signed_url" to change the signed URLs
+- Added link to the Google Cloud Console in the info box of each file (requires External Files in Media Library 6.0.0)
+
+### Changed
+
+- Updated German translations
+
+### Fixed
+
+- Fixed missing delivery of exported files via the proxy, as the files could not be loaded for its cache
+- Fixed high memory usage during the export of large files, they are now uploaded as stream (and as resumable upload for files with more than 5 MB)
+- Fixed high memory usage during the import of large files, they are now saved directly into a local file
 
 ## [1.1.0] - 24.10.2026
 
