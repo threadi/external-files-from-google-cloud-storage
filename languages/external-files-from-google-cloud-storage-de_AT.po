@@ -193,6 +193,30 @@ msgstr "Beim Abrufen der Informationen vom Google Cloud Storage ist ein Fehler a
 msgid "Error during request of Google Cloud Storage IAM binding data:"
 msgstr "Beim Abrufen der Informationen vom Google Cloud Storage ist ein Fehler aufgetreten:"
 
+#: app/GoogleCloudStorage.php:1180
+msgid "No credentials or no bucket set for this Google Cloud Storage connection!"
+msgstr "Für diese Google-Cloud-Storage-Verbindung sind keine Zugangsdaten oder kein Bucket hinterlegt!"
+
+#: app/GoogleCloudStorage.php:1200
+msgid "Check the log for details."
+msgstr "Details findest du im Protokoll."
+
+#: app/GoogleCloudStorage.php:1221
+msgid "The bucket could not be listed."
+msgstr "Der Bucket konnte nicht aufgelistet werden."
+
+#: app/GoogleCloudStorage.php:1225
+msgid "The bucket could be listed."
+msgstr "Der Bucket konnte aufgelistet werden."
+
+#: app/GoogleCloudStorage.php:1255
+msgid "The test file could not be uploaded to the bucket."
+msgstr "Die Testdatei konnte nicht in den Bucket hochgeladen werden."
+
+#: app/GoogleCloudStorage.php:1294
+msgid "The test file could not be deleted in the bucket."
+msgstr "Die Testdatei konnte im Bucket nicht gelöscht werden."
+
 #: app/GoogleCloudStorage/Export.php:96
 msgid "Bucket seems not to be public. File will not be exported for your Google Cloud Storage."
 msgstr "Der Bucket scheint nicht öffentlich zu sein. Die Datei wird nicht in dein Google Cloud Storage exportiert."

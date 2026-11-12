@@ -1153,4 +1153,145 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	public function get_default_roles(): array {
 		return array( 'administrator', 'editor' );
 	}
+
+	/**
+	 * Return whether this service supports the complete connection test (requires External Files in Media Library 6.0.0).
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return bool
+	 */
+	public function supports_connection_test(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the bucket for the connection test.
+	 *
+	 * @return Bucket
+	 * @throws Exception If the bucket could not be loaded.
+	 */
+	private function get_connection_test_bucket(): Bucket {
+		// get the storage object.
+		$storage = $this->get_storage_object();
+
+		// bail if storage could not be loaded or no bucket is set.
+		if ( ! $storage instanceof StorageClient || '' === $this->get_bucket_name() ) {
+			throw new Exception( esc_html__( 'No credentials or no bucket set for this Google Cloud Storage connection!', 'external-files-from-google-cloud-storage' ) );
+		}
+
+		// return the bucket.
+		return $storage->bucket( $this->get_bucket_name() );
+	}
+
+	/**
+	 * Log the given exception of the connection test and return a new exception with a short message.
+	 *
+	 * @param Exception $e       The exception.
+	 * @param string    $message The short message.
+	 *
+	 * @return Exception
+	 */
+	private function get_connection_test_exception( Exception $e, string $message ): Exception {
+		// log the details.
+		Log::get_instance()->create( esc_html( $message ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $this->get_directory(), 'error' );
+
+		// return the exception with the short message.
+		return new Exception( $message . ' ' . __( 'Check the log for details.', 'external-files-from-google-cloud-storage' ) );
+	}
+
+	/**
+	 * Connect to the bucket and list its files for the connection test.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return string
+	 * @throws Exception If the step failed.
+	 */
+	protected function test_connection_list(): string {
+		// get the bucket.
+		$bucket = $this->get_connection_test_bucket();
+
+		// list the first file.
+		try {
+			foreach ( $bucket->objects( array( 'maxResults' => 1 ) ) as $object ) {
+				break;
+			}
+		} catch ( Exception $e ) {
+			throw $this->get_connection_test_exception( $e, __( 'The bucket could not be listed.', 'external-files-from-google-cloud-storage' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+
+		// return the message.
+		return __( 'The bucket could be listed.', 'external-files-from-google-cloud-storage' );
+	}
+
+	/**
+	 * Upload the test file to the bucket.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $local_file The absolute path to the local test file.
+	 * @param string $file_name  The name of the test file.
+	 *
+	 * @return string
+	 * @throws Exception If the step failed.
+	 */
+	protected function test_connection_upload( string $local_file, string $file_name ): string {
+		// get the bucket.
+		$bucket = $this->get_connection_test_bucket();
+
+		// upload the file.
+		try {
+			$object = $bucket->upload(
+				(string) Helper::get_wp_filesystem()->get_contents( $local_file ),
+				array(
+					'name'     => $file_name,
+					'metadata' => array(
+						'contentType' => 'text/plain',
+					),
+				)
+			);
+		} catch ( Exception $e ) {
+			throw $this->get_connection_test_exception( $e, __( 'The test file could not be uploaded to the bucket.', 'external-files-from-google-cloud-storage' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+
+		// return the public URL of the file.
+		return $this->get_public_url_for_file( $bucket->name(), $object->name() );
+	}
+
+	/**
+	 * Return whether the bucket is public, like the export checks it for public files.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $url The URL of the uploaded file.
+	 *
+	 * @return bool|null
+	 */
+	protected function test_connection_public( string $url ): ?bool {
+		try {
+			return $this->is_bucket_public( $this->get_connection_test_bucket() );
+		} catch ( Exception $e ) {
+			return false;
+		}
+	}
+
+	/**
+	 * Delete the test file in the bucket.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $url       The URL of the uploaded file.
+	 * @param string $file_name The name of the test file.
+	 *
+	 * @return void
+	 * @throws Exception If the step failed.
+	 */
+	protected function test_connection_delete( string $url, string $file_name ): void {
+		try {
+			$this->get_connection_test_bucket()->object( $file_name )->delete();
+		} catch ( Exception $e ) {
+			throw $this->get_connection_test_exception( $e, __( 'The test file could not be deleted in the bucket.', 'external-files-from-google-cloud-storage' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+	}
 }

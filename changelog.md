@@ -13,6 +13,7 @@
 - Added link to the Google Cloud Console in the info box of each file (requires External Files in Media Library 6.0.0)
 - Added hook "efmlgcs_upload_options" to change the options for the upload of exported files, e.g. to add "cacheControl" or "contentDisposition"
 - Exported files get the content type of their attachment
+- Added support for the connection test in the directory listing (requires External Files in Media Library 6.0.0)
 
 ### Changed
 

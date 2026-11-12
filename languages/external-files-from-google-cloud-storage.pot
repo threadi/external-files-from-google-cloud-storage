@@ -192,6 +192,30 @@ msgstr ""
 msgid "Error during request of Google Cloud Storage IAM binding data:"
 msgstr ""
 
+#: app/GoogleCloudStorage.php:1180
+msgid "No credentials or no bucket set for this Google Cloud Storage connection!"
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1200
+msgid "Check the log for details."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1221
+msgid "The bucket could not be listed."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1225
+msgid "The bucket could be listed."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1255
+msgid "The test file could not be uploaded to the bucket."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1294
+msgid "The test file could not be deleted in the bucket."
+msgstr ""
+
 #: app/GoogleCloudStorage/Export.php:96
 msgid "Bucket seems not to be public. File will not be exported for your Google Cloud Storage."
 msgstr ""
