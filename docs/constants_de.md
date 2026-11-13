@@ -20,3 +20,17 @@ Der Name jeder Konstante setzt sich zusammen aus `EFML_` + Name des Dienstes + `
 define( 'EFML_GOOGLE_CLOUD_STORAGE_AUTHENTICATION_JSON', '{"type":"service_account", ...}' );
 define( 'EFML_GOOGLE_CLOUD_STORAGE_BUCKET', 'dein-bucket' ); // optional
 ```
+
+## Mehrere Verbindungen
+
+Du kannst mehrere Verbindungen festlegen, z. B. für zwei Dienstkonten. Liste die Namen der Verbindungen in `EFML_GOOGLE_CLOUD_STORAGE_CONNECTIONS` auf und ergänze den Namen der Verbindung in den Namen ihrer Konstanten. Ist mehr als eine Verbindung vollständig, zeigt das Formular für eine neue externe Quelle das Feld „Verbindung“. Ohne gewählte Verbindung gilt die erste Verbindung, die zum Bucket passt (eine Verbindung ohne Bucket passt zu jedem Bucket). Details stehen in der [Dokumentation des Hauptplugins](https://github.com/threadi/external-files-in-media-library/blob/master/docs/constants_de.md#mehrere-verbindungen).
+
+```php
+define( 'EFML_GOOGLE_CLOUD_STORAGE_CONNECTIONS', 'bilder,downloads' );
+
+define( 'EFML_GOOGLE_CLOUD_STORAGE_BILDER_AUTHENTICATION_JSON', '{"type":"service_account", ...}' );
+define( 'EFML_GOOGLE_CLOUD_STORAGE_BILDER_BUCKET', 'dein-bilder-bucket' );
+
+define( 'EFML_GOOGLE_CLOUD_STORAGE_DOWNLOADS_AUTHENTICATION_JSON', '{"type":"service_account", ...}' );
+define( 'EFML_GOOGLE_CLOUD_STORAGE_DOWNLOADS_BUCKET', 'dein-download-bucket' );
+```

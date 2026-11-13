@@ -1294,4 +1294,15 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			throw $this->get_connection_test_exception( $e, __( 'The test file could not be deleted in the bucket.', 'external-files-from-google-cloud-storage' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 	}
+
+	/**
+	 * Return further search terms of this service, separated by commas (e.g. for the command palette).
+	 *
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @return string
+	 */
+	protected function get_keywords(): string {
+		return 'Google, Google Cloud, GCS, bucket, cloud';
+	}
 }

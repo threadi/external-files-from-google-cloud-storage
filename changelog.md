@@ -6,6 +6,7 @@
 
 - Added possibility to define the authentication JSON and the bucket via constants, e.g. in wp-config.php (requires External Files in Media Library 6.0.0)
 - If the bucket is defined via constant, saved external sources for other buckets are not usable
+- Added possibility to define several connections via constants, e.g. for two service accounts (requires External Files in Media Library 6.0.0)
 - Added documentation for the constants in docs/constants.md
 - Added support for the folder structure of exported files (requires External Files in Media Library 6.0.0)
 - Added support for private files (requires External Files in Media Library 6.0.0): files could be exported into buckets, which are not public, and are delivered via signed URLs or the cache of the proxy
@@ -17,6 +18,7 @@
 - Added integration tests against an emulator of Google Cloud Storage and a GitHub workflow for them
 - Buckets are imported file by file via the import of External Files in Media Library 6.0.0: also buckets with tens of thousands of files, in the background if necessary
 - Added integration test for the import of a bucket with 1,100 files
+- Added search terms for the command palette of WordPress, e.g. other names of the service (requires External Files in Media Library 6.0.0)
 
 ### Changed
 

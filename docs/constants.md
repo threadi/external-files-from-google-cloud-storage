@@ -20,3 +20,17 @@ The name of each constant is `EFML_` + the name of the service + `_` + the name 
 define( 'EFML_GOOGLE_CLOUD_STORAGE_AUTHENTICATION_JSON', '{"type":"service_account", ...}' );
 define( 'EFML_GOOGLE_CLOUD_STORAGE_BUCKET', 'your-bucket' ); // optional
 ```
+
+## Several connections
+
+You can define several connections, e.g. for two service accounts. List the names of the connections in `EFML_GOOGLE_CLOUD_STORAGE_CONNECTIONS` and add the name of the connection to the names of its constants. If more than one connection is complete, the form for a new external source shows the field "Connection". Without a chosen connection, the first connection matching the bucket is used (a connection without bucket matches every bucket). Details are in the [documentation of the main plugin](https://github.com/threadi/external-files-in-media-library/blob/master/docs/constants.md#several-connections).
+
+```php
+define( 'EFML_GOOGLE_CLOUD_STORAGE_CONNECTIONS', 'images,downloads' );
+
+define( 'EFML_GOOGLE_CLOUD_STORAGE_IMAGES_AUTHENTICATION_JSON', '{"type":"service_account", ...}' );
+define( 'EFML_GOOGLE_CLOUD_STORAGE_IMAGES_BUCKET', 'your-image-bucket' );
+
+define( 'EFML_GOOGLE_CLOUD_STORAGE_DOWNLOADS_AUTHENTICATION_JSON', '{"type":"service_account", ...}' );
+define( 'EFML_GOOGLE_CLOUD_STORAGE_DOWNLOADS_BUCKET', 'your-download-bucket' );
+```
