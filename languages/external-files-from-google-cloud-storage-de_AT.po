@@ -266,3 +266,11 @@ msgstr "Danach kannst du nur noch Google Cloud Storage für externe Quellen anze
 #: app/Plugin/Configuration.php:50
 msgid "This will disable all other services except Google Cloud Storage."
 msgstr "Dadurch werden alle anderen Dienste mit Ausnahme von Google Cloud Storage deaktiviert."
+
+#: app/GoogleCloudStorage.php:997
+msgid "The object does not exist in the bucket."
+msgstr "Das Objekt existiert nicht im Bucket."
+
+#: app/GoogleCloudStorage.php:985
+msgid "The connection to Google Cloud Storage could not be established."
+msgstr "Die Verbindung zu Google Cloud Storage konnte nicht hergestellt werden."

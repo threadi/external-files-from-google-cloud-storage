@@ -265,3 +265,11 @@ msgstr ""
 #: app/Plugin/Configuration.php:50
 msgid "This will disable all other services except Google Cloud Storage."
 msgstr ""
+
+#: app/GoogleCloudStorage.php:997
+msgid "The object does not exist in the bucket."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:985
+msgid "The connection to Google Cloud Storage could not be established."
+msgstr ""

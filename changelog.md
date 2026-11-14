@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added support for the migration from other offload plugins (WP Offload Media, Offload Media – Cloud Storage) via the quickstart of External Files in Media Library 6.0.0: files in the bucket are used as external files without uploading them again
 - Added possibility to define the authentication JSON and the bucket via constants, e.g. in wp-config.php (requires External Files in Media Library 6.0.0)
 - If the bucket is defined via constant, saved external sources for other buckets are not usable
 - Added possibility to define several connections via constants, e.g. for two service accounts (requires External Files in Media Library 6.0.0)

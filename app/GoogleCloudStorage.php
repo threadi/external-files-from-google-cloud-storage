@@ -951,6 +951,57 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	}
 
 	/**
+	 * Return the name of the post meta, in which the name of an object in the bucket is saved.
+	 *
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return string
+	 */
+	public function get_offloaded_object_meta_key(): string {
+		return 'efml_google_cloud_storage';
+	}
+
+	/**
+	 * Return the URL of an object, which has been saved in the bucket by another plugin (e.g. by another offload
+	 * plugin), to use it as external file.
+	 *
+	 * The fields of the external source must be set before. Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $key        The name of the object.
+	 * @param bool   $is_private Whether the object is not public available.
+	 *
+	 * @return string|WP_Error
+	 */
+	public function get_url_of_offloaded_object( string $key, bool $is_private ): string|WP_Error {
+		// get the storage object.
+		$storage = $this->get_storage_object();
+
+		// bail if it could not be loaded.
+		if ( ! $storage instanceof StorageClient ) {
+			return new WP_Error( 'efmlgcs_no_storage', __( 'The connection to Google Cloud Storage could not be established.', 'external-files-from-google-cloud-storage' ) );
+		}
+
+		try {
+			// check whether the object exists.
+			$exists = $storage->bucket( $this->get_bucket_name() )->object( $key )->exists();
+		} catch ( Exception $e ) {
+			return new WP_Error( 'efmlgcs_object_check_failed', $e->getMessage() );
+		}
+
+		// bail if the object does not exist.
+		if ( ! $exists ) {
+			return new WP_Error( 'efmlgcs_object_missing', __( 'The object does not exist in the bucket.', 'external-files-from-google-cloud-storage' ) );
+		}
+
+		// return the URL, like it is used for exported files.
+		return $this->get_public_url_for_file( $this->get_bucket_name(), $key );
+	}
+
+	/**
 	 * Return the public URL for a given file ID.
 	 *
 	 * @param string $bucket_name The bucket name.
