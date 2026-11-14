@@ -273,3 +273,49 @@ msgstr ""
 #: app/GoogleCloudStorage.php:985
 msgid "The connection to Google Cloud Storage could not be established."
 msgstr ""
+
+#. translators: %1$s will be replaced by the name of a permission.
+#: app/GoogleCloudStorage.php:1254
+#, php-format
+msgid "The service account is missing the permission %1$s. Check its role for the bucket, see \"Where do I find these details?\" in the form."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1374
+msgid "Google Cloud Storage uses a service account with a key as JSON file. You create both in the Google Cloud console of the project with your bucket."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1376
+msgid "Create a service account under IAM & Admin → Service accounts. It does not need a role for the whole project."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1377
+msgid "Open your bucket under Cloud Storage → Buckets → Permissions → Grant access, enter the e-mail address of the service account and give it the role \"Storage Admin\" for this bucket."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1378
+msgid "Open the service account, choose Keys → Add key → Create new key → JSON and download the file."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1379
+msgid "Paste the complete content of the JSON file in the field for the authentication JSON and enter the name of the bucket."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1382
+msgid "For the export, the files must be public readable: grant the role \"Storage Object Viewer\" for the bucket to \"allUsers\", or use private files."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1383
+msgid "Some organizations forbid keys for service accounts by a policy (iam.disableServiceAccountKeyCreation). Then ask the administrator of your Google Cloud organization."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1384
+msgid "Keep the JSON file secret: it allows access to your bucket."
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1388
+msgid "Create service account keys"
+msgstr ""
+
+#: app/GoogleCloudStorage.php:1392
+msgid "Permissions for buckets"
+msgstr ""

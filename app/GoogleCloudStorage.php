@@ -1247,6 +1247,13 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// log the details.
 		Log::get_instance()->create( esc_html( $message ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $this->get_directory(), 'error' );
 
+		// name the missing permission, if Google returns it.
+		$permission = $this->get_missing_permission( $e->getMessage() );
+		if ( '' !== $permission ) {
+			/* translators: %1$s will be replaced by the name of a permission, e.g. "storage.objects.list". */
+			$message .= ' ' . sprintf( __( 'The service account is missing the permission %1$s. Check its role for the bucket, see "Where do I find these details?" in the form.', 'external-files-from-google-cloud-storage' ), $permission );
+		}
+
 		// return the exception with the short message.
 		return new Exception( $message . ' ' . __( 'Check the log for details.', 'external-files-from-google-cloud-storage' ) );
 	}
@@ -1355,5 +1362,58 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 */
 	protected function get_keywords(): string {
 		return 'Google, Google Cloud, GCS, bucket, cloud';
+	}
+
+	/**
+	 * Return the help for the setup of this service.
+	 *
+	 * @return array{intro?: string, steps?: array<int,string>, hints?: array<int,string>, code?: array{label: string, content: string, hint?: string}, links?: array<int,array{label: string, url: string}>}
+	 */
+	public function get_setup_guide(): array {
+		return array(
+			'intro' => __( 'Google Cloud Storage uses a service account with a key as JSON file. You create both in the Google Cloud console of the project with your bucket.', 'external-files-from-google-cloud-storage' ),
+			'steps' => array(
+				__( 'Create a service account under IAM & Admin → Service accounts. It does not need a role for the whole project.', 'external-files-from-google-cloud-storage' ),
+				__( 'Open your bucket under Cloud Storage → Buckets → Permissions → Grant access, enter the e-mail address of the service account and give it the role "Storage Admin" for this bucket.', 'external-files-from-google-cloud-storage' ),
+				__( 'Open the service account, choose Keys → Add key → Create new key → JSON and download the file.', 'external-files-from-google-cloud-storage' ),
+				__( 'Paste the complete content of the JSON file in the field for the authentication JSON and enter the name of the bucket.', 'external-files-from-google-cloud-storage' ),
+			),
+			'hints' => array(
+				__( 'For the export, the files must be public readable: grant the role "Storage Object Viewer" for the bucket to "allUsers", or use private files.', 'external-files-from-google-cloud-storage' ),
+				__( 'Some organizations forbid keys for service accounts by a policy (iam.disableServiceAccountKeyCreation). Then ask the administrator of your Google Cloud organization.', 'external-files-from-google-cloud-storage' ),
+				__( 'Keep the JSON file secret: it allows access to your bucket.', 'external-files-from-google-cloud-storage' ),
+			),
+			'links' => array(
+				array(
+					'label' => __( 'Create service account keys', 'external-files-from-google-cloud-storage' ),
+					'url'   => 'https://cloud.google.com/iam/docs/keys-create-delete',
+				),
+				array(
+					'label' => __( 'Permissions for buckets', 'external-files-from-google-cloud-storage' ),
+					'url'   => 'https://cloud.google.com/storage/docs/access-control/using-iam-permissions',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Return the permission, which is missing according to the given error message of Google Cloud Storage.
+	 *
+	 * Google names it in its messages, e.g. "... does not have storage.objects.create access to ...".
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $message The error message.
+	 *
+	 * @return string
+	 */
+	public function get_missing_permission( string $message ): string {
+		// bail if the message does not contain a permission.
+		if ( ! preg_match( '/does not have ([a-z]+\.[a-zA-Z.]+) access/', $message, $matches ) ) {
+			return '';
+		}
+
+		// return the permission.
+		return $matches[1];
 	}
 }
