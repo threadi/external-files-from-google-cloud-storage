@@ -256,6 +256,121 @@ class Export extends Export_Base {
 	}
 
 	/**
+	 * Return whether this service could export the sizes of images.
+	 *
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return bool
+	 */
+	public function supports_sizes(): bool {
+		return true;
+	}
+
+	/**
+	 * Export an additional file of an attachment (e.g. a size of an image) to the bucket.
+	 *
+	 * The post meta of the attachment is not changed.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param int                 $attachment_id The attachment ID.
+	 * @param string              $source        The absolute path of the local file.
+	 * @param string              $target        The target of the file.
+	 * @param array<string,mixed> $credentials   The credentials.
+	 *
+	 * @return string|bool
+	 */
+	public function export_size( int $attachment_id, string $source, string $target, array $credentials ): string|bool {
+		// get the bucket.
+		$bucket = $this->get_bucket_object( isset( $credentials['fields'] ) && is_array( $credentials['fields'] ) ? $credentials['fields'] : array() );
+
+		// bail if bucket could not be loaded or the file does not exist.
+		if ( ! $bucket instanceof Bucket || ! Helper::get_wp_filesystem()->exists( $source ) ) {
+			return false;
+		}
+
+		// get the name of the object.
+		$name = $this->get_folder_from_target( $target, $credentials ) . basename( $target );
+
+		// get the upload options with the content type of this file.
+		$options   = $this->get_upload_options( $attachment_id, $source, $name );
+		$file_type = wp_check_filetype( basename( $source ) );
+		if ( is_string( $file_type['type'] ) && '' !== $file_type['type'] ) {
+			$metadata                = isset( $options['metadata'] ) && is_array( $options['metadata'] ) ? $options['metadata'] : array();
+			$metadata['contentType'] = $file_type['type'];
+			$options['metadata']     = $metadata;
+		}
+
+		// open the file, so it is uploaded as stream.
+		$handle = fopen( $source, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		// bail if the file could not be opened.
+		if ( false === $handle ) {
+			return false;
+		}
+
+		// upload the file.
+		try {
+			$object = $bucket->upload( $handle, $options );
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $target, 'error' );
+
+			// do nothing more.
+			return false;
+		} finally {
+			if ( is_resource( $handle ) ) {
+				fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			}
+		}
+
+		// return the public URL of this file.
+		return GoogleCloudStorage::get_instance()->get_public_url_for_file( $bucket->name(), $object->name() );
+	}
+
+	/**
+	 * Delete an additional file of an attachment in the bucket.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param int                 $attachment_id The attachment ID.
+	 * @param string              $url           The URL of the file.
+	 * @param string              $target        The target of the file.
+	 * @param array<string,mixed> $credentials   The credentials.
+	 *
+	 * @return bool
+	 */
+	public function delete_size( int $attachment_id, string $url, string $target, array $credentials ): bool {
+		// get the bucket.
+		$bucket = $this->get_bucket_object( isset( $credentials['fields'] ) && is_array( $credentials['fields'] ) ? $credentials['fields'] : array() );
+
+		// bail if bucket could not be loaded.
+		if ( ! $bucket instanceof Bucket ) {
+			return false;
+		}
+
+		// delete the object.
+		try {
+			$object = $bucket->object( $this->get_folder_from_target( $target, $credentials ) . basename( $target ) );
+			if ( ! $object->exists() ) {
+				return false;
+			}
+			$object->delete();
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $url, 'error' );
+
+			// do nothing more.
+			return false;
+		}
+
+		// return true as the file has been deleted.
+		return true;
+	}
+
+	/**
 	 * Return whether this service supports folders for exported files.
 	 *
 	 * Google Cloud Storage uses the folders as part of the name of the file, so no folders must be created.

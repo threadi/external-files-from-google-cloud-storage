@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added export of the sizes of images and their original image together with them (requires External Files in Media Library 6.0.0): they are delivered like the images themselves, via the proxy or from the bucket
 - Added help "Where do I find these details?" to the form and to the quickstart (requires External Files in Media Library 6.0.0): how to create the service account, its role for the bucket and the JSON key
 - The connection test names the missing permission of the service account, if Google returns it
 - Added support for the migration from other offload plugins (WP Offload Media, Offload Media – Cloud Storage) via the quickstart of External Files in Media Library 6.0.0: files in the bucket are used as external files without uploading them again
