@@ -38,6 +38,57 @@ use WP_User;
  */
 class GoogleCloudStorage extends Service_Base implements Service {
 	/**
+	 * List of the callbacks to encrypt and decrypt settings with their context.
+	 *
+	 * @var array<string,callable>
+	 */
+	private array $crypt_callbacks = array();
+
+	/**
+	 * Return whether the user settings of this service are encrypted with a context.
+	 *
+	 * The main plugin saves the user settings with the context "usermeta:efml_<name>", if this returns true.
+	 *
+	 * @return bool
+	 */
+	public function is_crypt_context_supported(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the callback to encrypt ("save") or decrypt ("read") a setting with its context.
+	 *
+	 * Values saved without context (by older versions) stay readable. With a main plugin, which does not
+	 * support contexts, the callbacks without context are used.
+	 *
+	 * @param string $type    The type: "save" or "read".
+	 * @param string $context The context, e.g. "option:" and the name of the option.
+	 *
+	 * @return callable
+	 */
+	protected function get_crypt_callback( string $type, string $context ): callable {
+		// return the callback, if it has been created before (the same object is needed for has_filter()).
+		$key = $type . ':' . $context;
+		if ( isset( $this->crypt_callbacks[ $key ] ) ) {
+			return $this->crypt_callbacks[ $key ];
+		}
+
+		// get the crypt object.
+		$crypt_obj = Crypt::get_instance();
+
+		// create the callback.
+		if ( 'save' === $type ) {
+			$callback = method_exists( $crypt_obj, 'get_save_callback' ) ? $crypt_obj->get_save_callback( $context ) : array( $this, 'encrypt_value' );
+		} else {
+			$callback = method_exists( $crypt_obj, 'get_read_callback' ) ? $crypt_obj->get_read_callback( $context ) : array( $this, 'decrypt_value' );
+		}
+
+		// remember and return it.
+		$this->crypt_callbacks[ $key ] = $callback;
+		return $callback;
+	}
+
+	/**
 	 * The object name.
 	 *
 	 * @var string
@@ -196,8 +247,8 @@ class GoogleCloudStorage extends Service_Base implements Service {
 				$setting->set_section( $section );
 				$setting->set_autoload( false );
 				$setting->set_type( 'string' );
-				$setting->set_read_callback( array( $this, 'decrypt_value' ) );
-				$setting->set_save_callback( array( $this, 'encrypt_value' ) );
+				$setting->set_read_callback( $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ) );
+				$setting->set_save_callback( $this->get_crypt_callback( 'save', 'option:eml_google_cloud_storage_json' ) );
 				$field = new Textarea( $settings_obj );
 				$field->set_title( __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) );
 				/* translators: %1$s will be replaced by a URL. */
@@ -270,7 +321,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		}
 
 		// check for encrypted value.
-		$decrypted_value = $this->decrypt_value( $json );
+		$decrypted_value = call_user_func( $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ), $json );
 		if ( ! empty( $decrypted_value ) ) {
 			$json = $decrypted_value;
 		}
@@ -318,12 +369,12 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			$json = (string) get_option( 'eml_google_cloud_storage_json' );
 
 			// return the value, if it is already decrypted during reading (only if the setting is registered).
-			if ( false !== has_filter( 'option_eml_google_cloud_storage_json', array( $this, 'decrypt_value' ) ) ) {
+			if ( false !== has_filter( 'option_eml_google_cloud_storage_json', $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ) ) ) {
 				return $json;
 			}
 
 			// return the decrypted value.
-			return $this->decrypt_value( $json );
+			return call_user_func( $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ), $json );
 		}
 
 		// get user-specific setting, if this is enabled.
@@ -337,7 +388,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			}
 
 			// get the value.
-			return Crypt::get_instance()->decrypt( get_user_meta( $user->ID, 'efml_google_cloud_storage_json', true ) ); // @phpstan-ignore class.notFound
+			return Crypt::get_instance()->decrypt( (string) get_user_meta( $user->ID, 'efml_google_cloud_storage_json', true ), 'usermeta:efml_google_cloud_storage_json' ); // @phpstan-ignore class.notFound
 		}
 
 		// return nothing.
@@ -380,7 +431,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			}
 
 			// return the value.
-			return Crypt::get_instance()->decrypt( get_user_meta( $user->ID, 'efml_google_cloud_storage_bucket', true ) ); // @phpstan-ignore class.notFound
+			return Crypt::get_instance()->decrypt( (string) get_user_meta( $user->ID, 'efml_google_cloud_storage_bucket', true ), 'usermeta:efml_google_cloud_storage_bucket' ); // @phpstan-ignore class.notFound
 		}
 
 		// return nothing.
