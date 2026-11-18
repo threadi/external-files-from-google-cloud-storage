@@ -465,4 +465,23 @@ class GoogleCloudStorage extends externalFilesFromGoogleCloudStorageTests {
 	public function test_get_export_object(): void {
 		$this->assertSame( \ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage\Export::get_instance(), $this->get_google_cloud_storage()->get_export_object() );
 	}
+
+	/**
+	 * Test the help for the setup and the hint for missing permissions.
+	 *
+	 * @return void
+	 */
+	public function test_setup_guide(): void {
+		$service = \ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage::get_instance();
+		$guide   = $service->get_setup_guide();
+		$this->assertNotEmpty( $guide['steps'] );
+		$this->assertStringStartsWith( 'https://cloud.google.com/', $guide['links'][0]['url'] );
+		if ( method_exists( $service, 'get_setup_guide_html' ) ) {
+			$this->assertStringContainsString( 'efml-setup-guide', $service->get_setup_guide_html() );
+		}
+
+		// the missing permission.
+		$this->assertSame( 'storage.objects.list', $service->get_missing_permission( 'web@project.iam.gserviceaccount.com does not have storage.objects.list access to the Google Cloud Storage bucket.' ) );
+		$this->assertSame( '', $service->get_missing_permission( 'Bucket not found' ) );
+	}
 }

@@ -10,16 +10,22 @@ namespace ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
 // prevent direct access.
 defined( 'ABSPATH' ) || exit;
 
+use DateTimeImmutable;
 use Exception;
 use ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage;
+use ExternalFilesInMediaLibrary\ExternalFiles\File;
+use ExternalFilesInMediaLibrary\ExternalFiles\Files;
 use ExternalFilesInMediaLibrary\ExternalFiles\Import;
 use ExternalFilesInMediaLibrary\ExternalFiles\Protocol_Base;
+use ExternalFilesInMediaLibrary\ExternalFiles\Protocols\Http;
 use ExternalFilesInMediaLibrary\ExternalFiles\Results;
 use ExternalFilesInMediaLibrary\ExternalFiles\Results\Url_Result;
 use ExternalFilesInMediaLibrary\Plugin\Helper;
 use ExternalFilesInMediaLibrary\Plugin\Log;
 use Google\Cloud\Storage\Bucket;
 use Google\Cloud\Storage\StorageClient;
+use Google\Cloud\Storage\StorageObject;
+use WP_Filesystem_Base;
 
 /**
  * Object to handle this protocol.
@@ -31,6 +37,27 @@ class Protocol extends Protocol_Base {
 	 * @var string
 	 */
 	protected string $name = 'google-cloud-storage';
+
+	/**
+	 * Return whether files could be imported from Google Cloud Storage in the actual request.
+	 *
+	 * The protocol is also registered for visitors (e.g. to deliver private files via the proxy), but only users
+	 * with the capability for Google Cloud Storage are allowed to import files (as well as cron and WP CLI).
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return bool
+	 */
+	public function is_import_allowed_for_user(): bool {
+		// use the check of the service, if it is available (External Files in Media Library 6.0.0 or newer).
+		$service_obj = GoogleCloudStorage::get_instance();
+		if ( method_exists( $service_obj, 'is_import_permitted' ) ) {
+			return $service_obj->is_import_permitted();
+		}
+
+		// otherwise check the capability for the service.
+		return defined( 'EFML_SYNC_RUNNING' ) || wp_doing_cron() || Helper::is_cli() || current_user_can( 'efml_cap_' . $service_obj->get_name() );
+	}
 
 	/**
 	 * Return whether the file using this protocol is available.
@@ -82,14 +109,7 @@ class Protocol extends Protocol_Base {
 		$google_cloud_storage_obj->set_fields( $fields );
 
 		// get the name from the URL.
-		$file_name = str_replace(
-			array(
-				$google_cloud_storage_obj->get_url_mark() . $google_cloud_storage_obj->get_bucket_name() . '/',
-				$google_cloud_storage_obj->get_directory(),
-			),
-			'',
-			$this->get_url()
-		);
+		$file_name = $this->get_file_name( $google_cloud_storage_obj );
 
 		// if file name is empty, we get a list of all files.
 		if ( empty( $file_name ) ) {
@@ -172,12 +192,12 @@ class Protocol extends Protocol_Base {
 
 		// download file to this location.
 		try {
-			// get the file content.
-			$content = $file->downloadAsString();
-
-			// write it to the tmp file.
-			$wp_filesystem->put_contents( $results['tmp-file'], $content );
+			// save the file directly into the tmp file, so it is not loaded completely into memory.
+			$file->downloadToFile( $results['tmp-file'] );
 		} catch ( Exception $e ) {
+			// clean up the tmp file.
+			$wp_filesystem->delete( $results['tmp-file'] );
+
 			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error', 1 );
 
 			// create the error entry.
@@ -229,12 +249,295 @@ class Protocol extends Protocol_Base {
 	}
 
 	/**
+	 * Return temp file from given URL.
+	 *
+	 * Private files are loaded via the API, other files (e.g. exported public files) via HTTP.
+	 *
+	 * @param string             $url The given URL.
+	 * @param WP_Filesystem_Base $filesystem The file system handler.
+	 *
+	 * @return bool|string
+	 */
+	public function get_temp_file( string $url, WP_Filesystem_Base $filesystem ): bool|string {
+		// bail if URL is empty.
+		if ( empty( $url ) ) {
+			return false;
+		}
+
+		// get the external file for this URL.
+		$external_file_obj = Files::get_instance()->get_file_by_url( $url );
+
+		// use the HTTP handler for files, which are not private.
+		if ( ! $external_file_obj instanceof File || ! method_exists( $external_file_obj, 'is_private' ) || ! $external_file_obj->is_private() ) { // @phpstan-ignore function.alreadyNarrowedType
+			$http_protocol_handler = new Http( $url );
+			$http_protocol_handler->set_fields( $this->get_fields() );
+			return $http_protocol_handler->get_temp_file( $url, $filesystem );
+		}
+
+		// get the object for this file.
+		$object = $this->get_object_for_url( $url, $external_file_obj );
+
+		// bail if object could not be loaded.
+		if ( ! $object instanceof StorageObject ) {
+			return false;
+		}
+
+		// get the tmp file name.
+		$tmp_file = wp_tempnam();
+
+		// load the file.
+		try {
+			$object->downloadToFile( $tmp_file );
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Private file could not be loaded from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $url, 'error' );
+
+			// delete the tmp file.
+			wp_delete_file( $tmp_file );
+
+			// return false as we do not get the file.
+			return false;
+		}
+
+		// return the path to the tmp file.
+		return $tmp_file;
+	}
+
+	/**
+	 * Return a signed URL for a private file, valid in the given time range.
+	 *
+	 * The signature is created locally with the key of the service account. For the same time range the same URL is
+	 * created, so browsers and caches can reuse it.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $url     The URL of the file (as saved on the external file).
+	 * @param int    $start   The start of the validity as timestamp.
+	 * @param int    $expires The end of the validity as timestamp.
+	 *
+	 * @return string
+	 */
+	public function get_signed_url( string $url, int $start, int $expires ): string {
+		// bail if URL is empty or the time range is not valid.
+		if ( empty( $url ) || $expires <= $start ) {
+			return '';
+		}
+
+		// get the object for this file.
+		$object = $this->get_object_for_url( $url, Files::get_instance()->get_file_by_url( $url ) );
+
+		// bail if object could not be loaded.
+		if ( ! $object instanceof StorageObject ) {
+			return '';
+		}
+
+		// create the signed URL.
+		try {
+			$signed_url = $object->signedUrl(
+				new DateTimeImmutable( '@' . $expires ),
+				array(
+					'version'   => 'v4',
+					'timestamp' => new DateTimeImmutable( '@' . $start ),
+				)
+			);
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Signed URL for private file could not be created:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $url, 'error' );
+
+			// return empty string to use the cache instead.
+			return '';
+		}
+
+		$instance = $this;
+		/**
+		 * Filter the signed URL for a private file.
+		 *
+		 * @since 1.2.0 Available since 1.2.0.
+		 * @param string $signed_url The signed URL.
+		 * @param string $name The name of the object.
+		 * @param Protocol $instance The protocol object.
+		 */
+		return (string) apply_filters( 'efmlgcs_signed_url', $signed_url, $object->name(), $instance );
+	}
+
+	/**
+	 * Return the storage object for the given URL.
+	 *
+	 * Uses the name saved during the export, if the file is known, otherwise the name from the URL.
+	 *
+	 * @param string     $url               The URL of the file.
+	 * @param File|false $external_file_obj The external file object, if known.
+	 *
+	 * @return StorageObject|false
+	 */
+	private function get_object_for_url( string $url, File|false $external_file_obj ): StorageObject|false {
+		// get the main object.
+		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
+		$google_cloud_storage_obj->set_fields( $this->get_fields() );
+
+		// get the bucket name.
+		$bucket_name = $google_cloud_storage_obj->get_bucket_name();
+
+		// get the name saved during the export.
+		$name = $external_file_obj instanceof File ? get_post_meta( $external_file_obj->get_id(), 'efml_google_cloud_storage', true ) : '';
+
+		// otherwise get the name from the URL.
+		if ( ! is_string( $name ) || '' === $name ) {
+			$name = rawurldecode( str_replace( $google_cloud_storage_obj->get_public_url_for_file( $bucket_name, '' ), '', $url ) );
+		}
+
+		// bail if no name could be found.
+		if ( '' === $name ) {
+			return false;
+		}
+
+		// get the storage object.
+		$storage = $google_cloud_storage_obj->get_storage_object();
+
+		// bail if storage could not be loaded.
+		if ( ! $storage instanceof StorageClient ) {
+			return false;
+		}
+
+		// return the object.
+		return $storage->bucket( $bucket_name )->object( $name );
+	}
+
+	/**
 	 * Return the title of this protocol object.
 	 *
 	 * @return string
 	 */
 	public function get_title(): string {
 		return 'Google Cloud Storage';
+	}
+
+	/**
+	 * Return the name of the file in the bucket from the URL of this object, empty for the bucket itself.
+	 *
+	 * @param GoogleCloudStorage $google_cloud_storage_obj The Google Cloud Storage object with the fields of this object.
+	 *
+	 * @return string
+	 */
+	private function get_file_name( GoogleCloudStorage $google_cloud_storage_obj ): string {
+		return str_replace(
+			array(
+				$google_cloud_storage_obj->get_url_mark() . $google_cloud_storage_obj->get_bucket_name() . '/',
+				$google_cloud_storage_obj->get_directory(),
+			),
+			'',
+			$this->get_url()
+		);
+	}
+
+	/**
+	 * Return whether this protocol could list the files of a directory page by page.
+	 *
+	 * @return bool
+	 */
+	public function supports_file_list(): bool {
+		return true;
+	}
+
+	/**
+	 * Return whether the URL of this object is the bucket, whose files are imported.
+	 *
+	 * @return bool
+	 */
+	public function is_directory(): bool {
+		// get the main object.
+		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
+		$google_cloud_storage_obj->set_fields( $this->get_fields() );
+
+		// return whether the URL does not contain a file name.
+		return '' === $this->get_file_name( $google_cloud_storage_obj );
+	}
+
+	/**
+	 * Return one page of the files in the bucket.
+	 *
+	 * @param string $cursor The cursor for the requested page.
+	 *
+	 * @return array{files: array<int,array{url: string, media-url?: string, filesize?: int, last-modified?: int}>, cursor: string}|false
+	 */
+	public function get_file_list( string $cursor ): array|false {
+		// get the main object.
+		$google_cloud_storage_obj = GoogleCloudStorage::get_instance();
+		$google_cloud_storage_obj->set_fields( $this->get_fields() );
+
+		// get storage object.
+		$storage = $google_cloud_storage_obj->get_storage_object();
+
+		// bail if storage could not be loaded.
+		if ( ! $storage instanceof StorageClient ) {
+			return false;
+		}
+
+		// get our bucket as object.
+		$bucket = $storage->bucket( $google_cloud_storage_obj->get_bucket_name() );
+
+		// bail if bucket does not exist or could not be loaded (checked only for the first page).
+		if ( '' === $cursor && ! $this->bucket_exists( $bucket, $this->get_url() ) ) {
+			return false;
+		}
+
+		// prepare the main pseudo-URL for each file.
+		$main_url = str_replace( $google_cloud_storage_obj->get_directory() . '/', '', $this->get_url() );
+
+		// set the options for the page.
+		$options = array( 'maxResults' => $this->get_file_list_page_size() );
+		if ( '' !== $cursor ) {
+			$options['pageToken'] = $cursor;
+		}
+
+		// get the page from the bucket.
+		try {
+			$iterator = $bucket->objects( $options );
+			$objects  = $iterator->iterateByPage()->current();
+			$token    = (string) $iterator->nextResultToken();
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $this->get_url(), 'error' );
+			return false;
+		}
+
+		// get the public state of the bucket: the import saves files in public buckets with their public URL.
+		$is_public = $google_cloud_storage_obj->is_bucket_public( $bucket );
+
+		// collect the files.
+		$files = array();
+		foreach ( is_array( $objects ) ? $objects : array() as $file_obj ) {
+			// get the file data (already loaded with the list).
+			$file_data = $file_obj->info();
+
+			// bail if this is a directory.
+			if ( str_ends_with( $file_data['name'], '/' ) ) {
+				continue;
+			}
+
+			$false = false;
+			/** This filter is documented in app/GoogleCloudStorage/Protocol.php */
+			if ( apply_filters( 'efmlgcs_service_googlecloudstorage_hide_file', $false, $file_data, $this->get_url() ) ) {
+				continue;
+			}
+
+			// add the file.
+			$entry = array(
+				'url'           => $main_url . $file_data['name'],
+				'filesize'      => absint( $file_data['size'] ?? 0 ),
+				'last-modified' => absint( strtotime( $file_data['updated'] ?? '' ) ),
+			);
+			if ( $is_public ) {
+				$entry['media-url'] = $google_cloud_storage_obj->get_public_url_for_file( $google_cloud_storage_obj->get_bucket_name(), $file_data['name'] );
+			}
+			$files[] = $entry;
+		}
+
+		// return the page with the token for the next page.
+		return array(
+			'files'  => $files,
+			'cursor' => $token !== $cursor ? $token : '',
+		);
 	}
 
 	/**

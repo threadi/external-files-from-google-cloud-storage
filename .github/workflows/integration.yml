@@ -1,0 +1,93 @@
+name: Integration tests
+
+# Runs the tests for Google Cloud Storage against a local emulator of its JSON API, without any Google account.
+on:
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Integration tests with Google Cloud Storage emulator (PHP ${{ matrix.php-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.2', '8.5']
+    services:
+      database:
+        # a fixed LTS version, so a new major release does not break the tests unnoticed.
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: wordpress_tests
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      EFMLGCS_INTEGRATION_ENDPOINT: http://127.0.0.1:9023
+    steps:
+      # this plugin and the main plugin are checked out side by side, like in wp-content/plugins/.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: external-files-from-google-cloud-storage
+          persist-credentials: false
+
+      - name: Checkout main plugin
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: threadi/external-files-in-media-library
+          path: external-files-in-media-library
+          persist-credentials: false
+
+      # gcp-storage-emulator emulates the JSON API of Google Cloud Storage (buckets, objects, uploads, IAM) locally.
+      - name: Start Google Cloud Storage emulator
+        run: |
+          python3 -m pip install --user "gcp-storage-emulator==2026.7.19"
+          nohup python3 -m gcp_storage_emulator start --host=127.0.0.1 --port=9023 --in-memory > gcs-emulator.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null "http://127.0.0.1:9023/storage/v1/b?project=test"; then exit 0; fi
+            sleep 1
+          done
+          cat gcs-emulator.log
+          exit 1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: phpunit-polyfills:1.1
+          extensions: mbstring, xml, zip, intl, pdo, mysql
+          coverage: none
+
+      - name: Install dependencies of the main plugin
+        working-directory: external-files-in-media-library
+        run: composer install --no-interaction --no-progress
+
+      - name: Install dependencies
+        working-directory: external-files-from-google-cloud-storage
+        run: composer install --no-interaction --no-progress
+
+      - name: Install SVN
+        run: sudo apt-get update && sudo apt-get install -y subversion
+
+      - name: Setup tests
+        working-directory: external-files-from-google-cloud-storage
+        run: bash bin/install-wp-tests.sh wordpress_tests root root 127.0.0.1 latest true
+
+      - name: Run integration tests
+        working-directory: external-files-from-google-cloud-storage
+        run: composer test-integration
+
+      - name: Show log of the Google Cloud Storage emulator
+        if: failure()
+        run: cat gcs-emulator.log

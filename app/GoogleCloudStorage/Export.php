@@ -90,8 +90,8 @@ class Export extends Export_Base {
 			return false;
 		}
 
-		// bail if bucket is not public.
-		if ( ! $google_cloud_storage_obj->is_bucket_public( $bucket ) ) {
+		// bail if bucket is not public (not necessary for private files).
+		if ( empty( $credentials['private'] ) && ! $google_cloud_storage_obj->is_bucket_public( $bucket ) ) {
 			// log this event.
 			Log::get_instance()->create( __( 'Bucket seems not to be public. File will not be exported for your Google Cloud Storage.', 'external-files-from-google-cloud-storage' ), $target, 'error' );
 
@@ -123,13 +123,23 @@ class Export extends Export_Base {
 			return false;
 		}
 
-		// upload the file.
+		// open the file, so it is uploaded as stream and not loaded completely into memory.
+		$handle = fopen( $file_path, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		// bail if the file could not be opened.
+		if ( false === $handle ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Given file could not be opened for the export:', 'external-files-from-google-cloud-storage' ) . ' <code>' . wp_json_encode( $file_path ) . '</code>', $target, 'error' );
+
+			// do nothing more.
+			return false;
+		}
+
+		// upload the file (files larger than 5 MB are uploaded as resumable upload by the SDK).
 		try {
 			$object = $bucket->upload(
-				(string) $wp_filesystem_local->get_contents( $file_path ),
-				array(
-					'name' => basename( $file_path ),
-				)
+				$handle,
+				$this->get_upload_options( $attachment_id, $file_path, $this->get_folder_from_target( $target, $credentials ) . basename( $file_path ) )
 			);
 		} catch ( Exception $e ) {
 			// log this event.
@@ -137,6 +147,11 @@ class Export extends Export_Base {
 
 			// do nothing more.
 			return false;
+		} finally {
+			// close the file, if the SDK has not closed it already.
+			if ( is_resource( $handle ) ) {
+				fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			}
 		}
 
 		// save the given name.
@@ -144,6 +159,51 @@ class Export extends Export_Base {
 
 		// return the public URL.
 		return GoogleCloudStorage::get_instance()->get_public_url_for_file( $bucket->name(), $object->name() );
+	}
+
+	/**
+	 * Return the options for the upload of the given file to Google Cloud Storage.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param int    $attachment_id The attachment ID.
+	 * @param string $file_path     The absolute path to the local file.
+	 * @param string $name          The name of the object in the bucket.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function get_upload_options( int $attachment_id, string $file_path, string $name ): array {
+		// get the content type from the attachment.
+		$content_type = (string) get_post_mime_type( $attachment_id );
+
+		// use the file extension as fallback.
+		if ( empty( $content_type ) ) {
+			$file_type    = wp_check_filetype( basename( $file_path ) );
+			$content_type = is_string( $file_type['type'] ) ? $file_type['type'] : '';
+		}
+
+		// set the options.
+		$options = array(
+			'name' => $name,
+		);
+		if ( ! empty( $content_type ) ) {
+			$options['metadata'] = array(
+				'contentType' => $content_type,
+			);
+		}
+
+		/**
+		 * Filter the options for the upload of a file to Google Cloud Storage.
+		 *
+		 * Could be used to add metadata like "cacheControl" or "contentDisposition" in "metadata",
+		 * e.g. $options['metadata']['cacheControl'] = 'public, max-age=31536000'.
+		 *
+		 * @since 1.2.0 Available since 1.2.0.
+		 * @param array<string,mixed> $options The options for the upload (see Bucket::upload() of the SDK).
+		 * @param int $attachment_id The attachment ID.
+		 * @param string $name The name of the object in the bucket.
+		 */
+		return apply_filters( 'efmlgcs_upload_options', $options, $attachment_id, $name );
 	}
 
 	/**
@@ -196,9 +256,181 @@ class Export extends Export_Base {
 	}
 
 	/**
-	 * Return the bucket object by given field settings.
+	 * Return whether this service could export the sizes of images.
 	 *
-	 * @param array<string,mixed> $fields List of fields.
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return bool
+	 */
+	public function supports_sizes(): bool {
+		return true;
+	}
+
+	/**
+	 * Export an additional file of an attachment (e.g. a size of an image) to the bucket.
+	 *
+	 * The post meta of the attachment is not changed.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param int                 $attachment_id The attachment ID.
+	 * @param string              $source        The absolute path of the local file.
+	 * @param string              $target        The target of the file.
+	 * @param array<string,mixed> $credentials   The credentials.
+	 *
+	 * @return string|bool
+	 */
+	public function export_size( int $attachment_id, string $source, string $target, array $credentials ): string|bool {
+		// get the bucket.
+		$bucket = $this->get_bucket_object( isset( $credentials['fields'] ) && is_array( $credentials['fields'] ) ? $credentials['fields'] : array() );
+
+		// bail if bucket could not be loaded or the file does not exist.
+		if ( ! $bucket instanceof Bucket || ! Helper::get_wp_filesystem()->exists( $source ) ) {
+			return false;
+		}
+
+		// get the name of the object.
+		$name = $this->get_folder_from_target( $target, $credentials ) . basename( $target );
+
+		// get the upload options with the content type of this file.
+		$options   = $this->get_upload_options( $attachment_id, $source, $name );
+		$file_type = wp_check_filetype( basename( $source ) );
+		if ( is_string( $file_type['type'] ) && '' !== $file_type['type'] ) {
+			$metadata                = isset( $options['metadata'] ) && is_array( $options['metadata'] ) ? $options['metadata'] : array();
+			$metadata['contentType'] = $file_type['type'];
+			$options['metadata']     = $metadata;
+		}
+
+		// open the file, so it is uploaded as stream.
+		$handle = fopen( $source, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		// bail if the file could not be opened.
+		if ( false === $handle ) {
+			return false;
+		}
+
+		// upload the file.
+		try {
+			$object = $bucket->upload( $handle, $options );
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $target, 'error' );
+
+			// do nothing more.
+			return false;
+		} finally {
+			if ( is_resource( $handle ) ) {
+				fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			}
+		}
+
+		// return the public URL of this file.
+		return GoogleCloudStorage::get_instance()->get_public_url_for_file( $bucket->name(), $object->name() );
+	}
+
+	/**
+	 * Delete an additional file of an attachment in the bucket.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param int                 $attachment_id The attachment ID.
+	 * @param string              $url           The URL of the file.
+	 * @param string              $target        The target of the file.
+	 * @param array<string,mixed> $credentials   The credentials.
+	 *
+	 * @return bool
+	 */
+	public function delete_size( int $attachment_id, string $url, string $target, array $credentials ): bool {
+		// get the bucket.
+		$bucket = $this->get_bucket_object( isset( $credentials['fields'] ) && is_array( $credentials['fields'] ) ? $credentials['fields'] : array() );
+
+		// bail if bucket could not be loaded.
+		if ( ! $bucket instanceof Bucket ) {
+			return false;
+		}
+
+		// delete the object.
+		try {
+			$object = $bucket->object( $this->get_folder_from_target( $target, $credentials ) . basename( $target ) );
+			if ( ! $object->exists() ) {
+				return false;
+			}
+			$object->delete();
+		} catch ( Exception $e ) {
+			// log this event.
+			Log::get_instance()->create( __( 'Error during request of file data from Google Cloud Storage:', 'external-files-from-google-cloud-storage' ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $url, 'error' );
+
+			// do nothing more.
+			return false;
+		}
+
+		// return true as the file has been deleted.
+		return true;
+	}
+
+	/**
+	 * Return whether this service supports folders for exported files.
+	 *
+	 * Google Cloud Storage uses the folders as part of the name of the file, so no folders must be created.
+	 *
+	 * @return bool
+	 */
+	public function supports_folders(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the folder of the given target below the directory of the external source, with trailing slash.
+	 *
+	 * Returns an empty string if the target is located directly in the directory of the external source
+	 * or not located in it at all.
+	 *
+	 * @param string              $target The target path of the file.
+	 * @param array<string,mixed> $credentials The credentials of the external source.
+	 *
+	 * @return string
+	 */
+	private function get_folder_from_target( string $target, array $credentials ): string {
+		// get the directory from the credentials.
+		$directory = isset( $credentials['directory'] ) && is_string( $credentials['directory'] ) ? trailingslashit( $credentials['directory'] ) : '';
+
+		// bail if no directory is set or the target is not located in it.
+		if ( in_array( $directory, array( '', '/' ), true ) || ! str_starts_with( $target, $directory ) ) {
+			return '';
+		}
+
+		// get the folder of the target below the directory.
+		$folder = dirname( substr( $target, strlen( $directory ) ) );
+
+		// bail if the target is located directly in the directory or contains relative folders.
+		if ( '.' === $folder || '' === $folder || in_array( '..', explode( '/', $folder ), true ) ) {
+			return '';
+		}
+
+		// return the folder.
+		return trailingslashit( $folder );
+	}
+
+	/**
+	 * Return whether this service could save exported files privately.
+	 *
+	 * Private files are delivered via the proxy of External Files in Media Library, from its cache or via a
+	 * redirect to a signed URL.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return bool
+	 */
+	public function supports_private_files(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the bucket object for the given fields.
+	 *
+	 * @param array<string,mixed> $fields The fields.
 	 *
 	 * @return Bucket|false
 	 */

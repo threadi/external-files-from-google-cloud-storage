@@ -38,11 +38,72 @@ use WP_User;
  */
 class GoogleCloudStorage extends Service_Base implements Service {
 	/**
+	 * List of the callbacks to encrypt and decrypt settings with their context.
+	 *
+	 * @var array<string,callable>
+	 */
+	private array $crypt_callbacks = array();
+
+	/**
+	 * Return whether the user settings of this service are encrypted with a context.
+	 *
+	 * The main plugin saves the user settings with the context "usermeta:efml_<name>", if this returns true.
+	 *
+	 * @return bool
+	 */
+	public function is_crypt_context_supported(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the callback to encrypt ("save") or decrypt ("read") a setting with its context.
+	 *
+	 * Values saved without context (by older versions) stay readable. With a main plugin, which does not
+	 * support contexts, the callbacks without context are used.
+	 *
+	 * @param string $type    The type: "save" or "read".
+	 * @param string $context The context, e.g. "option:" and the name of the option.
+	 *
+	 * @return callable
+	 */
+	protected function get_crypt_callback( string $type, string $context ): callable {
+		// return the callback, if it has been created before (the same object is needed for has_filter()).
+		$key = $type . ':' . $context;
+		if ( isset( $this->crypt_callbacks[ $key ] ) ) {
+			return $this->crypt_callbacks[ $key ];
+		}
+
+		// get the crypt object.
+		$crypt_obj = Crypt::get_instance();
+
+		// create the callback.
+		if ( 'save' === $type ) {
+			$callback = method_exists( $crypt_obj, 'get_save_callback' ) ? $crypt_obj->get_save_callback( $context ) : array( $this, 'encrypt_value' );
+		} else {
+			$callback = method_exists( $crypt_obj, 'get_read_callback' ) ? $crypt_obj->get_read_callback( $context ) : array( $this, 'decrypt_value' );
+		}
+
+		// remember and return it.
+		$this->crypt_callbacks[ $key ] = $callback;
+		return $callback;
+	}
+
+	/**
 	 * The object name.
 	 *
 	 * @var string
 	 */
 	protected string $name = 'google-cloud-storage';
+
+	/**
+	 * List of fields, which identify the target of this service.
+	 *
+	 * If the credentials are defined via constants incl. a bucket, saved external sources for other buckets
+	 * could not be used. Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @var array<int,string>
+	 */
+	protected array $constants_target_fields = array( 'bucket' );
 
 	/**
 	 * The public label.
@@ -109,16 +170,28 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// add settings.
 		add_action( 'init', array( $this, 'init_google_cloud_storage' ), 30 );
 
+		// use the protocol in each request, e.g. for private files via the proxy and for exports of uploads by users
+		// without the capability for this service. Only if the main plugin checks the capability for imports via the
+		// protocol (External Files in Media Library 6.0.0 or newer), otherwise only for users with the capability.
+		$protocol_in_each_request = method_exists( '\ExternalFilesInMediaLibrary\ExternalFiles\Protocol_Base', 'is_import_allowed_for_user' );
+		if ( $protocol_in_each_request ) {
+			add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
+		}
+
 		// bail if user has no capability for this service.
-		if ( ! defined( 'EFML_SYNC_RUNNING' ) && ! current_user_can( 'efml_cap_' . $this->get_name() ) ) {
+		if ( ! $this->is_import_allowed() ) {
 			return;
 		}
 
 		// set title.
 		$this->title = __( 'Choose file(s) from your Google Cloud Storage', 'external-files-from-google-cloud-storage' ); // @phpstan-ignore property.notFound
 
+		// use the protocol for users with the capability, if the main plugin does not check it for imports.
+		if ( ! $protocol_in_each_request ) {
+			add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
+		}
+
 		// use our own hooks.
-		add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
 		add_filter( 'efmlgcs_service_googlecloudstorage_hide_file', array( $this, 'prevent_not_allowed_files' ), 10, 3 );
 		add_filter( 'efml_directory_listing', array( $this, 'prepare_tree_building' ), 20, 3 );
 
@@ -180,29 +253,35 @@ class GoogleCloudStorage extends Service_Base implements Service {
 
 		// add setting for insert-field.
 		if ( defined( 'EFML_ACTIVATION_RUNNING' ) || $this->is_mode( 'global' ) ) {
-			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_json' );
-			$setting->set_section( $section );
-			$setting->set_autoload( false );
-			$setting->set_type( 'string' );
-			$setting->set_read_callback( array( $this, 'decrypt_value' ) );
-			$setting->set_save_callback( array( $this, 'encrypt_value' ) );
-			$field = new Textarea( $settings_obj );
-			$field->set_title( __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) );
-			/* translators: %1$s will be replaced by a URL. */
-			$field->set_description( sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() ) );
-			$field->set_sanitize_callback( array( $this, 'validate_json' ) );
-			$setting->set_field( $field );
+			// show hint if the value is defined via constant, otherwise the setting.
+			if ( ! $this->show_constant_hint( $section, 'authentication_json', __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) ) ) {
+				$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_json' );
+				$setting->set_section( $section );
+				$setting->set_autoload( false );
+				$setting->set_type( 'string' );
+				$setting->set_read_callback( $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ) );
+				$setting->set_save_callback( $this->get_crypt_callback( 'save', 'option:eml_google_cloud_storage_json' ) );
+				$field = new Textarea( $settings_obj );
+				$field->set_title( __( 'Authentication JSON', 'external-files-from-google-cloud-storage' ) );
+				/* translators: %1$s will be replaced by a URL. */
+				$field->set_description( sprintf( __( 'Get the authentication JSON by editing your service account <a href="%1$s" target="_blank">here (opens in a new window)</a>.', 'external-files-from-google-cloud-storage' ), $this->get_console_url() ) );
+				$field->set_sanitize_callback( array( $this, 'validate_json' ) );
+				$setting->set_field( $field );
+			}
 
-			// add setting for the bucket.
-			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_bucket' );
-			$setting->set_section( $section );
-			$setting->set_autoload( false );
-			$setting->set_type( 'string' );
-			$setting->set_default( '' );
-			$field = new Text( $settings_obj );
-			$field->set_title( __( 'Bucket', 'external-files-from-google-cloud-storage' ) );
-			$field->set_description( __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-from-google-cloud-storage' ) );
-			$setting->set_field( $field );
+			// show hint if the value is defined via constant, otherwise the setting.
+			if ( ! $this->show_constant_hint( $section, 'bucket', __( 'Bucket', 'external-files-from-google-cloud-storage' ) ) ) {
+				// add setting for the bucket.
+				$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_bucket' );
+				$setting->set_section( $section );
+				$setting->set_autoload( false );
+				$setting->set_type( 'string' );
+				$setting->set_default( '' );
+				$field = new Text( $settings_obj );
+				$field->set_title( __( 'Bucket', 'external-files-from-google-cloud-storage' ) );
+				$field->set_description( __( 'Set the name of the bucket to use for external files. Leave this field empty if you want to connect to different buckets.', 'external-files-from-google-cloud-storage' ) );
+				$setting->set_field( $field );
+			}
 
 			// show button to go to the files.
 			$setting = $settings_obj->add_setting( 'eml_google_cloud_storage_goto' );
@@ -254,7 +333,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		}
 
 		// check for encrypted value.
-		$decrypted_value = $this->decrypt_value( $json );
+		$decrypted_value = call_user_func( $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ), $json );
 		if ( ! empty( $decrypted_value ) ) {
 			$json = $decrypted_value;
 		}
@@ -290,18 +369,24 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return string
 	 */
 	private function get_authentication_json(): string {
+		// use the value of the constant, if set.
+		$constant_value = $this->get_constant_value_if_supported( 'authentication_json' );
+		if ( ! is_null( $constant_value ) ) {
+			return $constant_value;
+		}
+
 		// get from global setting, if this is enabled.
 		if ( $this->is_mode( 'global' ) ) {
 			// get the value.
 			$json = (string) get_option( 'eml_google_cloud_storage_json' );
 
 			// return the value, if it is already decrypted during reading (only if the setting is registered).
-			if ( false !== has_filter( 'option_eml_google_cloud_storage_json', array( $this, 'decrypt_value' ) ) ) {
+			if ( false !== has_filter( 'option_eml_google_cloud_storage_json', $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ) ) ) {
 				return $json;
 			}
 
 			// return the decrypted value.
-			return $this->decrypt_value( $json );
+			return call_user_func( $this->get_crypt_callback( 'read', 'option:eml_google_cloud_storage_json' ), $json );
 		}
 
 		// get user-specific setting, if this is enabled.
@@ -315,7 +400,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			}
 
 			// get the value.
-			return Crypt::get_instance()->decrypt( get_user_meta( $user->ID, 'efml_google_cloud_storage_json', true ) ); // @phpstan-ignore class.notFound
+			return Crypt::get_instance()->decrypt( (string) get_user_meta( $user->ID, 'efml_google_cloud_storage_json', true ), 'usermeta:efml_google_cloud_storage_json' ); // @phpstan-ignore class.notFound
 		}
 
 		// return nothing.
@@ -328,9 +413,18 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 * @return string
 	 */
 	public function get_bucket_name(): string {
-		// use the setting from fields, if set.
-		if ( ! empty( $this->fields['bucket']['value'] ) ) {
-			return $this->fields['bucket']['value'];
+		// use the setting from fields incl. the values of constants, if set.
+		if ( ! empty( $this->fields ) ) {
+			$fields = $this->get_fields();
+			if ( ! empty( $fields['bucket']['value'] ) && is_string( $fields['bucket']['value'] ) ) {
+				return $fields['bucket']['value'];
+			}
+		}
+
+		// use the value of the constant, if set.
+		$constant_value = $this->get_constant_value_if_supported( 'bucket' );
+		if ( ! is_null( $constant_value ) ) {
+			return $constant_value;
 		}
 
 		// get from global setting, if this is enabled.
@@ -349,11 +443,60 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			}
 
 			// return the value.
-			return Crypt::get_instance()->decrypt( get_user_meta( $user->ID, 'efml_google_cloud_storage_bucket', true ) ); // @phpstan-ignore class.notFound
+			return Crypt::get_instance()->decrypt( (string) get_user_meta( $user->ID, 'efml_google_cloud_storage_bucket', true ), 'usermeta:efml_google_cloud_storage_bucket' ); // @phpstan-ignore class.notFound
 		}
 
 		// return nothing.
 		return '';
+	}
+
+	/**
+	 * Return the list of required fields, which must all be defined via constants to use any constant.
+	 *
+	 * Only the authentication JSON is required, as the bucket is optional to connect to different buckets.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_required_fields_for_constants(): array {
+		return array_values( array_diff( parent::get_required_fields_for_constants(), array( 'bucket' ) ) );
+	}
+
+	/**
+	 * Return the value of a field defined via constant, if the main plugin supports this.
+	 *
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @param string $field_name The name of the field.
+	 *
+	 * @return string|null
+	 */
+	private function get_constant_value_if_supported( string $field_name ): ?string {
+		// bail if the main plugin does not support constants.
+		if ( ! method_exists( $this, 'get_constant_value' ) ) { // @phpstan-ignore function.alreadyNarrowedType
+			return null;
+		}
+
+		// return the value.
+		return $this->get_constant_value( $field_name );
+	}
+
+	/**
+	 * Show a non-editable hint instead of a setting, if the value of the given field is defined via constant.
+	 *
+	 * @param Section $section    The section for the setting.
+	 * @param string  $field_name The name of the field.
+	 * @param string  $title      The title of the setting.
+	 *
+	 * @return bool True if the hint has been added, false if the setting should be added.
+	 */
+	protected function show_constant_hint( Section $section, string $field_name, string $title ): bool {
+		// bail if the main plugin does not support this (requires "External Files in Media Library" 6.0.0 or newer).
+		if ( ! method_exists( $this, 'add_constant_hint_setting' ) ) { // @phpstan-ignore function.alreadyNarrowedType
+			return false;
+		}
+
+		// add the hint, if the value is defined via constant.
+		return $this->add_constant_hint_setting( $section, $field_name, $title );
 	}
 
 	/**
@@ -599,6 +742,17 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	}
 
 	/**
+	 * Return the URL of the web interface of Google Cloud Storage (the Google Cloud Console).
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return string
+	 */
+	public function get_platform_url(): string {
+		return 'https://console.cloud.google.com/storage/browser/';
+	}
+
+	/**
 	 * Return global actions.
 	 *
 	 * @return array<int,array<string,string>>
@@ -608,7 +762,7 @@ class GoogleCloudStorage extends Service_Base implements Service {
 			parent::get_global_actions(),
 			array(
 				array(
-					'action' => 'location.href="https://console.cloud.google.com/storage/browser/";',
+					'action' => 'location.href="' . esc_url( $this->get_platform_url() ) . '";',
 					'label'  => __( 'Go to your bucket', 'external-files-from-google-cloud-storage' ),
 				),
 				array(
@@ -860,6 +1014,57 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	}
 
 	/**
+	 * Return the name of the post meta, in which the name of an object in the bucket is saved.
+	 *
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return string
+	 */
+	public function get_offloaded_object_meta_key(): string {
+		return 'efml_google_cloud_storage';
+	}
+
+	/**
+	 * Return the URL of an object, which has been saved in the bucket by another plugin (e.g. by another offload
+	 * plugin), to use it as external file.
+	 *
+	 * The fields of the external source must be set before. Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $key        The name of the object.
+	 * @param bool   $is_private Whether the object is not public available.
+	 *
+	 * @return string|WP_Error
+	 */
+	public function get_url_of_offloaded_object( string $key, bool $is_private ): string|WP_Error {
+		// get the storage object.
+		$storage = $this->get_storage_object();
+
+		// bail if it could not be loaded.
+		if ( ! $storage instanceof StorageClient ) {
+			return new WP_Error( 'efmlgcs_no_storage', __( 'The connection to Google Cloud Storage could not be established.', 'external-files-from-google-cloud-storage' ) );
+		}
+
+		try {
+			// check whether the object exists.
+			$exists = $storage->bucket( $this->get_bucket_name() )->object( $key )->exists();
+		} catch ( Exception $e ) {
+			return new WP_Error( 'efmlgcs_object_check_failed', $e->getMessage() );
+		}
+
+		// bail if the object does not exist.
+		if ( ! $exists ) {
+			return new WP_Error( 'efmlgcs_object_missing', __( 'The object does not exist in the bucket.', 'external-files-from-google-cloud-storage' ) );
+		}
+
+		// return the URL, like it is used for exported files.
+		return $this->get_public_url_for_file( $this->get_bucket_name(), $key );
+	}
+
+	/**
 	 * Return the public URL for a given file ID.
 	 *
 	 * @param string $bucket_name The bucket name.
@@ -1061,5 +1266,217 @@ class GoogleCloudStorage extends Service_Base implements Service {
 	 */
 	public function get_default_roles(): array {
 		return array( 'administrator', 'editor' );
+	}
+
+	/**
+	 * Return whether this service supports the complete connection test (requires External Files in Media Library 6.0.0).
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return bool
+	 */
+	public function supports_connection_test(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the bucket for the connection test.
+	 *
+	 * @return Bucket
+	 * @throws Exception If the bucket could not be loaded.
+	 */
+	private function get_connection_test_bucket(): Bucket {
+		// get the storage object.
+		$storage = $this->get_storage_object();
+
+		// bail if storage could not be loaded or no bucket is set.
+		if ( ! $storage instanceof StorageClient || '' === $this->get_bucket_name() ) {
+			throw new Exception( esc_html__( 'No credentials or no bucket set for this Google Cloud Storage connection!', 'external-files-from-google-cloud-storage' ) );
+		}
+
+		// return the bucket.
+		return $storage->bucket( $this->get_bucket_name() );
+	}
+
+	/**
+	 * Log the given exception of the connection test and return a new exception with a short message.
+	 *
+	 * @param Exception $e       The exception.
+	 * @param string    $message The short message.
+	 *
+	 * @return Exception
+	 */
+	private function get_connection_test_exception( Exception $e, string $message ): Exception {
+		// log the details.
+		Log::get_instance()->create( esc_html( $message ) . ' <code>' . esc_html( $e->getMessage() ) . '</code>', $this->get_directory(), 'error' );
+
+		// name the missing permission, if Google returns it.
+		$permission = $this->get_missing_permission( $e->getMessage() );
+		if ( '' !== $permission ) {
+			/* translators: %1$s will be replaced by the name of a permission, e.g. "storage.objects.list". */
+			$message .= ' ' . sprintf( __( 'The service account is missing the permission %1$s. Check its role for the bucket, see "Where do I find these details?" in the form.', 'external-files-from-google-cloud-storage' ), $permission );
+		}
+
+		// return the exception with the short message.
+		return new Exception( $message . ' ' . __( 'Check the log for details.', 'external-files-from-google-cloud-storage' ) );
+	}
+
+	/**
+	 * Connect to the bucket and list its files for the connection test.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @return string
+	 * @throws Exception If the step failed.
+	 */
+	protected function test_connection_list(): string {
+		// get the bucket.
+		$bucket = $this->get_connection_test_bucket();
+
+		// list the first file.
+		try {
+			foreach ( $bucket->objects( array( 'maxResults' => 1 ) ) as $object ) {
+				break;
+			}
+		} catch ( Exception $e ) {
+			throw $this->get_connection_test_exception( $e, __( 'The bucket could not be listed.', 'external-files-from-google-cloud-storage' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+
+		// return the message.
+		return __( 'The bucket could be listed.', 'external-files-from-google-cloud-storage' );
+	}
+
+	/**
+	 * Upload the test file to the bucket.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $local_file The absolute path to the local test file.
+	 * @param string $file_name  The name of the test file.
+	 *
+	 * @return string
+	 * @throws Exception If the step failed.
+	 */
+	protected function test_connection_upload( string $local_file, string $file_name ): string {
+		// get the bucket.
+		$bucket = $this->get_connection_test_bucket();
+
+		// upload the file.
+		try {
+			$object = $bucket->upload(
+				(string) Helper::get_wp_filesystem()->get_contents( $local_file ),
+				array(
+					'name'     => $file_name,
+					'metadata' => array(
+						'contentType' => 'text/plain',
+					),
+				)
+			);
+		} catch ( Exception $e ) {
+			throw $this->get_connection_test_exception( $e, __( 'The test file could not be uploaded to the bucket.', 'external-files-from-google-cloud-storage' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+
+		// return the public URL of the file.
+		return $this->get_public_url_for_file( $bucket->name(), $object->name() );
+	}
+
+	/**
+	 * Return whether the bucket is public, like the export checks it for public files.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $url The URL of the uploaded file.
+	 *
+	 * @return bool|null
+	 */
+	protected function test_connection_public( string $url ): ?bool {
+		try {
+			return $this->is_bucket_public( $this->get_connection_test_bucket() );
+		} catch ( Exception $e ) {
+			return false;
+		}
+	}
+
+	/**
+	 * Delete the test file in the bucket.
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $url       The URL of the uploaded file.
+	 * @param string $file_name The name of the test file.
+	 *
+	 * @return void
+	 * @throws Exception If the step failed.
+	 */
+	protected function test_connection_delete( string $url, string $file_name ): void {
+		try {
+			$this->get_connection_test_bucket()->object( $file_name )->delete();
+		} catch ( Exception $e ) {
+			throw $this->get_connection_test_exception( $e, __( 'The test file could not be deleted in the bucket.', 'external-files-from-google-cloud-storage' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+	}
+
+	/**
+	 * Return further search terms of this service, separated by commas (e.g. for the command palette).
+	 *
+	 * Requires "External Files in Media Library" 6.0.0 or newer.
+	 *
+	 * @return string
+	 */
+	protected function get_keywords(): string {
+		return 'Google, Google Cloud, GCS, bucket, cloud';
+	}
+
+	/**
+	 * Return the help for the setup of this service.
+	 *
+	 * @return array{intro?: string, steps?: array<int,string>, hints?: array<int,string>, code?: array{label: string, content: string, hint?: string}, links?: array<int,array{label: string, url: string}>}
+	 */
+	public function get_setup_guide(): array {
+		return array(
+			'intro' => __( 'Google Cloud Storage uses a service account with a key as JSON file. You create both in the Google Cloud console of the project with your bucket.', 'external-files-from-google-cloud-storage' ),
+			'steps' => array(
+				__( 'Create a service account under IAM & Admin → Service accounts. It does not need a role for the whole project.', 'external-files-from-google-cloud-storage' ),
+				__( 'Open your bucket under Cloud Storage → Buckets → Permissions → Grant access, enter the e-mail address of the service account and give it the role "Storage Admin" for this bucket.', 'external-files-from-google-cloud-storage' ),
+				__( 'Open the service account, choose Keys → Add key → Create new key → JSON and download the file.', 'external-files-from-google-cloud-storage' ),
+				__( 'Paste the complete content of the JSON file in the field for the authentication JSON and enter the name of the bucket.', 'external-files-from-google-cloud-storage' ),
+			),
+			'hints' => array(
+				__( 'For the export, the files must be public readable: grant the role "Storage Object Viewer" for the bucket to "allUsers", or use private files.', 'external-files-from-google-cloud-storage' ),
+				__( 'Some organizations forbid keys for service accounts by a policy (iam.disableServiceAccountKeyCreation). Then ask the administrator of your Google Cloud organization.', 'external-files-from-google-cloud-storage' ),
+				__( 'Keep the JSON file secret: it allows access to your bucket.', 'external-files-from-google-cloud-storage' ),
+			),
+			'links' => array(
+				array(
+					'label' => __( 'Create service account keys', 'external-files-from-google-cloud-storage' ),
+					'url'   => 'https://cloud.google.com/iam/docs/keys-create-delete',
+				),
+				array(
+					'label' => __( 'Permissions for buckets', 'external-files-from-google-cloud-storage' ),
+					'url'   => 'https://cloud.google.com/storage/docs/access-control/using-iam-permissions',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Return the permission, which is missing according to the given error message of Google Cloud Storage.
+	 *
+	 * Google names it in its messages, e.g. "... does not have storage.objects.create access to ...".
+	 *
+	 * @since 1.2.0 Available since 1.2.0.
+	 *
+	 * @param string $message The error message.
+	 *
+	 * @return string
+	 */
+	public function get_missing_permission( string $message ): string {
+		// bail if the message does not contain a permission.
+		if ( ! preg_match( '/does not have ([a-z]+\.[a-zA-Z.]+) access/', $message, $matches ) ) {
+			return '';
+		}
+
+		// return the permission.
+		return $matches[1];
 	}
 }
