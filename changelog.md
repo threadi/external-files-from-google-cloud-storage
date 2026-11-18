@@ -31,6 +31,7 @@
 
 ### Fixed
 
+- Fixed delivery of private files via the proxy for visitors and users without the capability for Google Cloud Storage, and exports of uploads by such users (requires External Files in Media Library 6.0.0): the protocol is known in each request now, imports still require the capability for Google Cloud Storage
 - Fixed missing delivery of exported files via the proxy, as the files could not be loaded for its cache
 - Fixed high memory usage during the export of large files, they are now uploaded as stream (and as resumable upload for files with more than 5 MB)
 - Fixed high memory usage during the import of large files, they are now saved directly into a local file

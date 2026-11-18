@@ -170,6 +170,14 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// add settings.
 		add_action( 'init', array( $this, 'init_google_cloud_storage' ), 30 );
 
+		// use the protocol in each request, e.g. for private files via the proxy and for exports of uploads by users
+		// without the capability for this service. Only if the main plugin checks the capability for imports via the
+		// protocol (External Files in Media Library 6.0.0 or newer), otherwise only for users with the capability.
+		$protocol_in_each_request = method_exists( '\ExternalFilesInMediaLibrary\ExternalFiles\Protocol_Base', 'is_import_allowed_for_user' );
+		if ( $protocol_in_each_request ) {
+			add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
+		}
+
 		// bail if user has no capability for this service.
 		if ( ! $this->is_import_allowed() ) {
 			return;
@@ -178,8 +186,12 @@ class GoogleCloudStorage extends Service_Base implements Service {
 		// set title.
 		$this->title = __( 'Choose file(s) from your Google Cloud Storage', 'external-files-from-google-cloud-storage' ); // @phpstan-ignore property.notFound
 
+		// use the protocol for users with the capability, if the main plugin does not check it for imports.
+		if ( ! $protocol_in_each_request ) {
+			add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
+		}
+
 		// use our own hooks.
-		add_filter( 'efml_protocols', array( $this, 'add_protocol' ) );
 		add_filter( 'efmlgcs_service_googlecloudstorage_hide_file', array( $this, 'prevent_not_allowed_files' ), 10, 3 );
 		add_filter( 'efml_directory_listing', array( $this, 'prepare_tree_building' ), 20, 3 );
 
