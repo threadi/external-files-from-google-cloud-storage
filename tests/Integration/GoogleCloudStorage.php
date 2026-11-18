@@ -305,8 +305,11 @@ class GoogleCloudStorage extends externalFilesFromGoogleCloudStorageTests {
 		$wpdb->query( 'DELETE FROM ' . $wpdb->prefix . 'efml_import_runs' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->query( 'DELETE FROM ' . $wpdb->prefix . 'eml_queue' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
-		// use the protocol, like for users with the capability.
+		// use the protocol as user with the capability, like in the import dialog.
 		add_filter( 'efml_protocols', array( \ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage::get_instance(), 'add_protocol' ) );
+		$user_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		( new \WP_User( $user_id ) )->add_cap( 'efml_cap_' . \ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage::get_instance()->get_name() );
+		wp_set_current_user( $user_id );
 
 		// upload the files.
 		$count = getenv( 'EFMLGCS_INTEGRATION_IMPORT_COUNT' ) ? absint( getenv( 'EFMLGCS_INTEGRATION_IMPORT_COUNT' ) ) : 1100;
