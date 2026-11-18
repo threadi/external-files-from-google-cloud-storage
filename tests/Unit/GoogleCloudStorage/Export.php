@@ -74,10 +74,43 @@ class Export extends externalFilesFromGoogleCloudStorageTests {
 		$this->assertEquals( 'https://storage.googleapis.com/my-bucket/' . $file_name, $url );
 		$this->assertEquals( $file_name, get_post_meta( $attachment_id, 'efml_google_cloud_storage', true ) );
 
-		// check the upload.
+		// check the upload, incl. the caching for one day as defined by the main plugin.
 		$upload = $this->get_google_requests()[2];
 		$this->assertEquals( $this->upload_url, $upload['url'] );
 		$this->assertStringContainsString( file_get_contents( UNIT_TESTS_DATA_PLUGIN_DIR . 'example.jpg' ), $upload['body'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$this->assertStringContainsString( '"cacheControl":"public, max-age=86400"', $upload['body'] );
+	}
+
+	/**
+	 * Test the header "Cache-Control" of uploaded files: one week with object versioning, none for private files.
+	 *
+	 * @return void
+	 */
+	public function test_cache_control_of_uploads(): void {
+		$method = new \ReflectionMethod( \ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage\Export::class, 'get_upload_options' );
+		$file   = UNIT_TESTS_DATA_PLUGIN_DIR . 'example.jpg';
+
+		// test 1: one day without object versioning.
+		$options = $method->invoke( $this->get_export(), 0, $file, 'example.jpg' );
+		$this->assertEquals( 'public, max-age=86400', $options['metadata']['cacheControl'] );
+
+		// test 2: one week with object versioning.
+		$folders   = get_option( 'eml_export_folders' );
+		$structure = get_option( 'eml_export_folder_structure' );
+		$yearmonth = get_option( 'uploads_use_yearmonth_folders' );
+		update_option( 'eml_export_folders', 1 );
+		update_option( 'eml_export_folder_structure', '%year%/%timestamp%' );
+		update_option( 'uploads_use_yearmonth_folders', 1 );
+		$options = $method->invoke( $this->get_export(), 0, $file, 'example.jpg' );
+		update_option( 'eml_export_folders', $folders );
+		update_option( 'eml_export_folder_structure', $structure );
+		update_option( 'uploads_use_yearmonth_folders', $yearmonth );
+		$this->assertEquals( 'public, max-age=604800', $options['metadata']['cacheControl'] );
+
+		// test 3: nothing for private files, but the content type.
+		$options = $method->invoke( $this->get_export(), 0, $file, 'example.jpg', true );
+		$this->assertArrayNotHasKey( 'cacheControl', $options['metadata'] );
+		$this->assertEquals( 'image/jpeg', $options['metadata']['contentType'] );
 	}
 
 	/**

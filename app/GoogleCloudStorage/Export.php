@@ -139,7 +139,7 @@ class Export extends Export_Base {
 		try {
 			$object = $bucket->upload(
 				$handle,
-				$this->get_upload_options( $attachment_id, $file_path, $this->get_folder_from_target( $target, $credentials ) . basename( $file_path ) )
+				$this->get_upload_options( $attachment_id, $file_path, $this->get_folder_from_target( $target, $credentials ) . basename( $file_path ), ! empty( $credentials['private'] ) )
 			);
 		} catch ( Exception $e ) {
 			// log this event.
@@ -169,10 +169,11 @@ class Export extends Export_Base {
 	 * @param int    $attachment_id The attachment ID.
 	 * @param string $file_path     The absolute path to the local file.
 	 * @param string $name          The name of the object in the bucket.
+	 * @param bool   $is_private       Whether the file is saved privately.
 	 *
 	 * @return array<string,mixed>
 	 */
-	protected function get_upload_options( int $attachment_id, string $file_path, string $name ): array {
+	protected function get_upload_options( int $attachment_id, string $file_path, string $name, bool $is_private = false ): array {
 		// get the content type from the attachment.
 		$content_type = (string) get_post_mime_type( $attachment_id );
 
@@ -190,6 +191,15 @@ class Export extends Export_Base {
 			$options['metadata'] = array(
 				'contentType' => $content_type,
 			);
+		}
+
+		// let browsers and CDNs cache the file, as External Files in Media Library defines it (since its version 6.0.0).
+		$export_obj = \ExternalFilesInMediaLibrary\ExternalFiles\Export::get_instance();
+		if ( method_exists( $export_obj, 'get_cache_control' ) ) { // @phpstan-ignore function.alreadyNarrowedType
+			$cache_control = $export_obj->get_cache_control( $attachment_id, $is_private );
+			if ( '' !== $cache_control ) {
+				$options['metadata']['cacheControl'] = $cache_control;
+			}
 		}
 
 		/**
@@ -295,7 +305,7 @@ class Export extends Export_Base {
 		$name = $this->get_folder_from_target( $target, $credentials ) . basename( $target );
 
 		// get the upload options with the content type of this file.
-		$options   = $this->get_upload_options( $attachment_id, $source, $name );
+		$options   = $this->get_upload_options( $attachment_id, $source, $name, ! empty( $credentials['private'] ) );
 		$file_type = wp_check_filetype( basename( $source ) );
 		if ( is_string( $file_type['type'] ) && '' !== $file_type['type'] ) {
 			$metadata                = isset( $options['metadata'] ) && is_array( $options['metadata'] ) ? $options['metadata'] : array();
