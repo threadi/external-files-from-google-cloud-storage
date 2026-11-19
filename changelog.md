@@ -4,40 +4,34 @@
 
 ### Added
 
-- Exported files get the header "Cache-Control" for browsers and CDNs, as defined by External Files in Media Library 6.0.0 (one day, with object versioning one week, private files none)
-- Added export of the sizes of images and their original image together with them (requires External Files in Media Library 6.0.0): they are delivered like the images themselves, via the proxy or from the bucket
-- Added help "Where do I find these details?" to the form and to the quickstart (requires External Files in Media Library 6.0.0): how to create the service account, its role for the bucket and the JSON key
-- The connection test names the missing permission of the service account, if Google returns it
-- Added support for the migration from other offload plugins (WP Offload Media, Offload Media – Cloud Storage) via the quickstart of External Files in Media Library 6.0.0: files in the bucket are used as external files without uploading them again
-- Added possibility to define the authentication JSON and the bucket via constants, e.g. in wp-config.php (requires External Files in Media Library 6.0.0)
-- If the bucket is defined via constant, saved external sources for other buckets are not usable
-- Added possibility to define several connections via constants, e.g. for two service accounts (requires External Files in Media Library 6.0.0)
-- Added documentation for the constants in docs/constants.md
-- Added support for the folder structure of exported files (requires External Files in Media Library 6.0.0)
-- Added support for private files (requires External Files in Media Library 6.0.0): files could be exported into buckets, which are not public, and are delivered via signed URLs or the cache of the proxy
-- Added hook "efmlgcs_signed_url" to change the signed URLs
-- Added link to the Google Cloud Console in the info box of each file (requires External Files in Media Library 6.0.0)
-- Added hook "efmlgcs_upload_options" to change the options for the upload of exported files, e.g. to add "cacheControl" or "contentDisposition"
-- Exported files get the content type of their attachment
-- Added support for the connection test in the directory listing (requires External Files in Media Library 6.0.0)
-- Added integration tests against an emulator of Google Cloud Storage and a GitHub workflow for them
-- Buckets are imported file by file via the import of External Files in Media Library 6.0.0: also buckets with tens of thousands of files, in the background if necessary
-- Added integration test for the import of a bucket with 1,100 files
-- Added search terms for the command palette of WordPress, e.g. other names of the service (requires External Files in Media Library 6.0.0)
+Most of the following requires External Files in Media Library 6.0.0.
+
+- Added migration from other offload plugins via the quickstart
+- Added export of image sizes and original images
+- Added private files, also for buckets which are not public
+- Added folder structure for exported files
+- Added header "Cache-Control" and the content type for exported files
+- Added credentials and bucket via constants, also for several connections
+- Added setup help "Where do I find these details?" for the service account
+- Added connection test, naming missing permissions
+- Added link to the Google Cloud Console for each file
+- Added import of large buckets file by file, also in the background
+- Added search terms for the command palette
+- Added new hooks
+- Added integration tests with a Google Cloud Storage emulator
 
 ### Changed
 
-- Encrypted settings and access data are bound to their purpose (requires External Files in Media Library 6.0.0): an encrypted value copied into another field cannot be decrypted there; values saved by older versions stay readable and are bound to their purpose when they are saved again
+- Encrypted values are bound to their purpose
 - Updated German translations
 
 ### Fixed
 
-- Fixed delivery of private files via the proxy for visitors and users without the capability for Google Cloud Storage, and exports of uploads by such users (requires External Files in Media Library 6.0.0): the protocol is known in each request now, imports still require the capability for Google Cloud Storage
-- Fixed missing delivery of exported files via the proxy, as the files could not be loaded for its cache
-- Fixed high memory usage during the export of large files, they are now uploaded as stream (and as resumable upload for files with more than 5 MB)
-- Fixed high memory usage during the import of large files, they are now saved directly into a local file
+- Fixed missing delivery of exported files via the proxy
+- Fixed delivery of private files to visitors and users without the capability for Google Cloud Storage
+- Fixed high memory usage with large files during export and import
+- Fixed imports in scheduled tasks without logged-in user
 
-- Fixed imports from Google Cloud Storage in scheduled tasks without logged-in user (e.g. via the queue or WP Cron)
 ## [1.1.0] - 24.10.2026
 
 ### Added

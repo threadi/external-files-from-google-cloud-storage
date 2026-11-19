@@ -1,6 +1,6 @@
 {
     "name": "threadi/efmlgcs",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "scripts": {
         "post-install-cmd": [
             "composer dump-autoload"
