@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0] - tbd
+
+### Added
+
+- Added the directories of files relative to their external source, for the folder structure in folder plugins of External Files in Media Library 6.1.0
+- Added support for the option to synchronize subdirectories of External Files in Media Library 6.1.0: buckets keep their folders by default, without folders only the files in the root of the bucket are synchronized
+
 ## [2.0.0] - 22.11.2026
 
 ### Added

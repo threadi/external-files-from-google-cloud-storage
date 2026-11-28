@@ -277,6 +277,10 @@ class Protocol extends externalFilesFromGoogleCloudStorageTests {
 		$this->assertIsArray( $page );
 		$this->assertEquals( '', $page['cursor'] );
 		$this->assertEquals( $this->directory . 'folder/photo.jpg', $page['files'][0]['url'] );
+
+		// the directories of the files in the bucket are known (e.g. for folder plugins).
+		$this->assertEquals( 'folder', $protocol->get_relative_directory( $page['files'][0]['url'] ) );
+		$this->assertEquals( '', $protocol->get_relative_directory( $this->directory . 'example.jpg' ) );
 	}
 
 	/**
@@ -346,5 +350,66 @@ class Protocol extends externalFilesFromGoogleCloudStorageTests {
 	 */
 	public function test_get_platform_url(): void {
 		$this->assertEquals( 'https://console.cloud.google.com/storage/browser/', \ExternalFilesFromGoogleCloudStorage\GoogleCloudStorage::get_instance()->get_platform_url() );
+	}
+
+	/**
+	 * Test the file list without the files of the folders in the bucket.
+	 *
+	 * The files of the folders are used by default (like before). If this is disabled (e.g. for the synchronization of
+	 * an external source), only the files in the root of the bucket are requested and used.
+	 *
+	 * @return void
+	 */
+	public function test_get_file_list_without_subdirectories(): void {
+		$this->connect();
+		$this->add_bucket();
+		$this->add_iam_policy( true );
+		$protocol = $this->get_protocol( $this->directory );
+		$this->assertTrue( $protocol->supports_subdirectories() );
+		$this->assertTrue( $protocol->get_subdirectories_default() );
+		$this->assertTrue( $protocol->is_subdirectories_enabled() );
+
+		// the response contains a file of a folder, which must not be used.
+		$this->add_google_response(
+			'GET',
+			'/o',
+			200,
+			array( 'items' => array( $this->get_object_data( 'example.jpg', 'content' ), $this->get_object_data( 'folder/photo.jpg', 'content' ) ) ),
+			array( 'delimiter' => '/' )
+		);
+
+		add_filter( 'efml_include_subdirectories', '__return_false' );
+		$page = $protocol->get_file_list( '' );
+		remove_filter( 'efml_include_subdirectories', '__return_false' );
+
+		$this->assertIsArray( $page );
+		$this->assertCount( 1, $page['files'] );
+		$this->assertEquals( $this->directory . 'example.jpg', $page['files'][0]['url'] );
+
+		// the request for the objects contains the delimiter.
+		$requests = array_values( array_filter( $this->get_google_requests(), fn( array $request ): bool => str_ends_with( (string) $request['url'], '/o' ) ) );
+		$this->assertCount( 1, $requests );
+		$this->assertEquals( '/', $requests[0]['query']['delimiter'] );
+	}
+
+	/**
+	 * Test the import of all files in the bucket without the files of its folders.
+	 *
+	 * @return void
+	 */
+	public function test_get_url_infos_for_bucket_without_subdirectories(): void {
+		$this->connect();
+		update_option( 'eml_directory_listing_hide_not_supported_file_types', 0 );
+		$this->add_bucket();
+		$this->add_object_list( array( 'example.jpg', 'folder/', 'folder/photo.jpg' ) );
+		$this->add_object( 'example.jpg', $this->get_example_content() );
+		$this->add_object( 'folder/photo.jpg', 'content' );
+
+		add_filter( 'efml_include_subdirectories', '__return_false' );
+		$infos = $this->get_protocol( $this->directory )->get_url_infos();
+		remove_filter( 'efml_include_subdirectories', '__return_false' );
+
+		$this->assertCount( 1, $infos );
+		$this->assertEquals( $this->directory . 'example.jpg', $infos[0]['url'] );
 	}
 }

@@ -440,6 +440,73 @@ class Protocol extends Protocol_Base {
 	}
 
 	/**
+	 * Return whether this protocol could use the files of subdirectories during a synchronization.
+	 *
+	 * @since 2.1.0 Available since 2.1.0.
+	 *
+	 * @return bool
+	 */
+	public function supports_subdirectories(): bool {
+		return true;
+	}
+
+	/**
+	 * Return whether this protocol uses the files of subdirectories by default.
+	 *
+	 * The import of the bucket has always used the files of all its folders.
+	 *
+	 * @since 2.1.0 Available since 2.1.0.
+	 *
+	 * @return bool
+	 */
+	public function get_subdirectories_default(): bool {
+		return true;
+	}
+
+	/**
+	 * Return the path of the directory of the given file URL in the bucket (the folders of the object name).
+	 *
+	 * @since 2.1.0 Available since 2.1.0.
+	 *
+	 * @param string $file_url The URL of the file.
+	 *
+	 * @return string
+	 */
+	public function get_relative_directory( string $file_url ): string {
+		// get the main pseudo-URL of the files, like for the listing of the files.
+		$main_url = str_replace( GoogleCloudStorage::get_instance()->get_directory() . '/', '', $this->get_url() );
+
+		// bail if the file is not in the bucket.
+		if ( '' === $main_url || ! str_starts_with( $file_url, $main_url ) ) {
+			return '';
+		}
+
+		// get the directory of the object name.
+		$directory = dirname( substr( $file_url, strlen( $main_url ) ) );
+
+		// return the directory, empty for files in the root of the bucket.
+		return '.' === $directory ? '' : $directory;
+	}
+
+	/**
+	 * Return whether the files of subdirectories should be used.
+	 *
+	 * Older versions of "External Files in Media Library" do not know this setting: the files of subdirectories are
+	 * used then like before.
+	 *
+	 * @return bool
+	 */
+	private function use_subdirectories(): bool {
+		// bail if the main plugin does not support the setting.
+		if ( ! method_exists( $this, 'is_subdirectories_enabled' ) ) { // @phpstan-ignore function.alreadyNarrowedType
+			return true;
+		}
+
+		// return the setting.
+		return $this->is_subdirectories_enabled();
+	}
+
+	/**
 	 * Return whether the URL of this object is the bucket, whose files are imported.
 	 *
 	 * @return bool
@@ -454,7 +521,7 @@ class Protocol extends Protocol_Base {
 	}
 
 	/**
-	 * Return one page of the files in the bucket.
+	 * Return one page of the files in the bucket (also in its folders, if they should be used).
 	 *
 	 * @param string $cursor The cursor for the requested page.
 	 *
@@ -490,6 +557,12 @@ class Protocol extends Protocol_Base {
 			$options['pageToken'] = $cursor;
 		}
 
+		// use only the files in the root of the bucket, if the files of its folders should not be used.
+		$use_subdirectories = $this->use_subdirectories();
+		if ( ! $use_subdirectories ) {
+			$options['delimiter'] = '/';
+		}
+
 		// get the page from the bucket.
 		try {
 			$iterator = $bucket->objects( $options );
@@ -512,6 +585,11 @@ class Protocol extends Protocol_Base {
 
 			// bail if this is a directory.
 			if ( str_ends_with( $file_data['name'], '/' ) ) {
+				continue;
+			}
+
+			// bail if this file is in a folder, which should not be used.
+			if ( ! $use_subdirectories && str_contains( $file_data['name'], '/' ) ) {
 				continue;
 			}
 
@@ -574,9 +652,12 @@ class Protocol extends Protocol_Base {
 		// list of files.
 		$files = array();
 
+		// use only the files in the root of the bucket, if the files of its folders should not be used.
+		$use_subdirectories = $this->use_subdirectories();
+
 		// get the file list from the bucket.
 		try {
-			$objects = iterator_to_array( $bucket->objects(), false );
+			$objects = iterator_to_array( $bucket->objects( $use_subdirectories ? array() : array( 'delimiter' => '/' ) ), false );
 		} catch ( Exception $e ) {
 			// log this event.
 			Log::get_instance()->create( __( 'Google Cloud Storage bucket could not be loaded:', 'external-files-from-google-cloud-storage' ) . ' <code>' . $e->getMessage() . '</code>', $this->get_url(), 'error' );
@@ -592,6 +673,11 @@ class Protocol extends Protocol_Base {
 
 			// bail if this is a directory.
 			if ( str_ends_with( $file_data['name'], '/' ) ) {
+				continue;
+			}
+
+			// bail if this file is in a folder, which should not be used.
+			if ( ! $use_subdirectories && str_contains( $file_data['name'], '/' ) ) {
 				continue;
 			}
 
